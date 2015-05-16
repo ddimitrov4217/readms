@@ -132,6 +132,26 @@ props_tags_codes = {}
 for tag, (tcode, tdesc) in props_tags.iteritems():
     props_tags_codes[tcode] = tag
 
+# [MS-OXCDATA] Data Structures (selected)
+_prop_types = """\
+0x001F String 0 String of Unicode characters in UTF-16LE
+0x0102 Binary 0 COUNT field followed by that many bytes
+0x000B Boolean 1 restricted to 1 or 0
+0x0003 Integer32 4 32-bit integer
+0x0040 Time 8 64-bit integer representing the number
+              of 100-nanosecond intervals since January 1, 1601
+"""
+prop_types = {}
+for _line in _prop_types.splitlines():
+    if not _line.startswith(" "):
+        _numh, _ptyp, _bytes, _desc = _line.split(" ", 3)
+        _numh = int(_numh, 16)
+        prop_types[_numh] = _ptyp, int(_bytes), _desc
+    else:
+        _ptyp, _bytes, _desc = prop_types[_numh]
+        prop_types[_numh] = _ptyp, _bytes, " ".join((_desc, _line.strip()))
+del _line, _numh, _ptyp, _bytes, _desc, _prop_types
+
 
 def enrich_prop_code(props):
     for prop in props:
@@ -158,3 +178,80 @@ def get_hnid_type(hnid):
     See Section 2.3.3.2.
     """
     return hnid & 0x1F == 0 and "HID" or "NID"
+
+
+def parse_ms_oxprops(fnm=None, _silent=False):
+    from os import path
+    if fnm is None:
+        fnm = path.abspath(path.dirname(__file__))
+        fnm = path.join(fnm, "..", "papers", "[MS-OXPROPS].txt")
+    if not path.exists(fnm):
+        return {}  # fallback
+
+    def read_events():
+        in_range, in_cont = False, False
+        next_id = 1
+        with open(fnm, "rb") as fin:
+            for _line in fin.readlines():
+                _line = _line.strip()
+                if len(_line) == 0:
+                    if in_cont:
+                        in_cont = False
+                        yield "DESC", (att, desc, )
+                        continue
+                if _line == "2 Structures":
+                    in_range = True
+                    yield "START", None
+                if _line == "3 Structure Examples":
+                    break
+                if not in_range:
+                    continue
+                if _line.startswith("2.%d " % next_id):
+                    # if next_id + 1 > 10:
+                    #     break
+                    num, name = _line.split(" ", 1)
+                    yield "PROP", (name, )
+                    next_id += 1
+                px = _line.find(":")
+                if px >= 0:
+                    att, desc = _line[:px].strip(), _line[(px+1):].strip()
+                    in_cont = True
+                else:
+                    if in_cont:
+                        desc = " ".join((desc, _line))
+            yield "END", None
+
+    prop_types = []
+    for etag, info in read_events():
+        if etag == "PROP":
+            name, = info
+            prop = dict(name=name.replace("PidTag", ""))
+            prop_types.append(prop)
+        if etag == "DESC":
+            att, desc = info
+            prop[att] = desc
+        if etag == "END":
+            def append_desc(id_name):
+                dx = dict([(int(x[id_name], 16), x)
+                           for x in prop_types if id_name in x])
+                result.update(dx)
+                if not _silent:
+                    print "%5d hashed by %s" % (len(dx), id_name)
+            result = {}
+            if not _silent:
+                print "%5d properties found" % len(prop_types)
+            id_names = ("Property long ID (LID)", "Property ID")
+            for id_name in id_names:
+                append_desc(id_name)
+            if not _silent:
+                lost = [x["name"] for x in prop_types
+                        if all([(z not in x) for z in id_names])]
+                print "%5d lost for no ID defined" % len(lost)
+    return result
+
+all_props_types = parse_ms_oxprops(_silent=False)
+
+if __name__ == '__main__':
+    from pprint import pprint
+    pt = parse_ms_oxprops()
+    # pprint(pt.values()[:10])
