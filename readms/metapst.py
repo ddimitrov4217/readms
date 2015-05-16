@@ -182,18 +182,20 @@ def get_hnid_type(hnid):
 
 
 def parse_ms_oxprops(fnm=None, _silent=False):
-    from os import path
-    if fnm is None:
-        fnm = path.abspath(path.dirname(__file__))
-        fnm = path.join(fnm, "..", "papers", "[MS-OXPROPS].txt")
-    if not path.exists(fnm):
-        return {}  # fallback
+    from pkgutil import get_data
 
     def read_events():
         in_range, in_cont = False, False
         next_id = 1
-        with open(fnm, "rb") as fin:
-            for _line in fin.readlines():
+        resource_fnm = "papers/MS-OXPROPS.txt"
+        try:
+            data = get_data("readms.metapst", resource_fnm)
+        except IOError:
+            yield "END", "Missing %s" % resource_fnm
+            return
+
+        if data is not None:
+            for _line in data.splitlines():
                 _line = _line.strip()
                 if len(_line) == 0:
                     if in_cont:
@@ -220,7 +222,7 @@ def parse_ms_oxprops(fnm=None, _silent=False):
                 else:
                     if in_cont:
                         desc = " ".join((desc, _line))
-            yield "END", None
+            yield "END", "Successfuly loaded %s" % resource_fnm
 
     prop_types = []
     for etag, info in read_events():
@@ -240,6 +242,7 @@ def parse_ms_oxprops(fnm=None, _silent=False):
                     print "%5d hashed by %s" % (len(dx), id_name)
             result = {}
             if not _silent:
+                print info
                 print "%5d properties found" % len(prop_types)
             id_names = ("Property long ID (LID)", "Property ID")
             for id_name in id_names:
@@ -254,5 +257,5 @@ all_props_types = parse_ms_oxprops(_silent=False)
 
 if __name__ == '__main__':
     from pprint import pprint
-    pt = parse_ms_oxprops()
-    # pprint(pt.values()[:10])
+    # pt = parse_ms_oxprops()
+    # pprint(pt.values()[:5])
