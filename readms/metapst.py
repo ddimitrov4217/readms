@@ -140,6 +140,7 @@ _prop_types = """\
 0x0003 Integer32 4 32-bit integer
 0x0040 Time 8 64-bit integer representing the number
               of 100-nanosecond intervals since January 1, 1601
+0x0014 Integer64 8 64-bit integer
 """
 prop_types = {}
 for _line in _prop_types.splitlines():

@@ -2,11 +2,15 @@
 # vim:ft=python:et:ts=4:sw=4:ai
 
 import gzip
-from codecs import decode
+from codecs import decode, encode
+from StringIO import StringIO
+from datetime import datetime, timedelta
+from struct import unpack_from as unpackb
 from readutl import (
     dump_hex, decode_permute, ulong_from_tuple, UnpackDesc)
 from metapst import (
-    page_types, nid_types, hn_header_client_sig,
+    page_types, nid_types, prop_types, all_props_types,
+    hn_header_client_sig,
     enrich_prop_code, props_tags_codes,
     get_hid_index, get_hnid_type)
 
@@ -356,18 +360,72 @@ def dump_heap_on_node(bx, title=None, full_dump=False):
         dump_hex(bx[pos:pos+lx])
 
 
+class PropertyValue:
+    def __init__(self, pt, pbuf=None):
+        self._pt = pt
+        self._buf = pbuf
+        unk_pt = ("0x%04X" % self._pt, "UNKNOWN", -1, None)
+        self.pt_desc = prop_types.get(self._pt, unk_pt)
+        pt_method = "_read_%s" % self.pt_desc[0]
+        self._read = getattr(self, pt_method)
+
+    class BinaryValue:
+        def __init__(self, data):
+            self.data = data
+
+        def __str__(self):
+            out = StringIO()
+            dump_hex(self.data, out=out)
+            return out.getvalue().strip()
+
+        def __len__(self):
+            return len(self.data)
+
+    @classmethod
+    def _read_String(cls, pbuf):
+        s1 = decode(pbuf, "UTF-16LE", "replace")
+        ix = s1.find("\0")
+        if ix >= 0:
+            s1 = s1[0:ix]
+        return s1
+
+    @classmethod
+    def _read_Binary(cls, pbuf):
+        return cls.BinaryValue(pbuf)
+
+    @classmethod
+    def _read_Boolean(cls, pbuf):
+        return unpackb("<L", pbuf)[0] == 1L
+
+    @classmethod
+    def _read_Integer32(cls, pbuf):
+        return unpackb("<L", pbuf)
+
+    @classmethod
+    def _read_Integer64(cls, pbuf):
+        return unpackb("<Q", pbuf)
+
+    @classmethod
+    def _read_Time(cls, pbuf):
+        stime = unpackb("<Q", pbuf)[0]/10000000  # seconds
+        days, seconds = divmod(stime, 24*60*60)
+        delta = timedelta(days=days, seconds=seconds)
+        return datetime(year=1601, month=1, day=1) + delta
+
+    def get_value(self):
+        return self._read(self._buf)
+
+
 class PropertyContext:
     # FIXME реализира и част от общата функционалност на BTH
-    def __init__(self, nid):
+    def __init__(self, nid, _debug=0):
         self.buf = ndb.read_nid(nid)  # read message store description
         self.hn_header, self.hn_pagemap = parse_heap_on_node(self.buf)
         assert self.hn_header["bClientSig"][0] == "bTypePC"
-        dump_heap_on_node(self.buf, title="PropertyContext[HND]")
+        self._debug = _debug
+        if self._debug > 0:
+            dump_heap_on_node(self.buf, title="PropertyContext[HND]")
         self._read_props_map()
-        self._read_fun = {0x001F: self._read_utf16,
-                          0x0102: self._read_binary,
-                          0x000B: self._read_boolean,
-                          0x0003: self._read_ulong}
 
     def _read_props_map(self):
         hid = get_hid_index(self.hn_header["hidUserRoot"])
@@ -378,7 +436,8 @@ class PropertyContext:
         hid = get_hid_index(self._bth_header["hidRoot"])
         pos, lx = self.hn_pagemap["rgibAlloc"][hid-1]
         b1 = self.buf[pos:pos+lx]
-        # dump_hex(b1)
+        if self._debug > 1:
+            dump_hex(b1)
         PC_BTH = """\
         propTag  WORD
         propType WORD
@@ -395,30 +454,26 @@ class PropertyContext:
 
     def _get_hid_pos_lx(self, px):
         hidIndex = get_hid_index(px["value"])
-        assert hidIndex <= 32
+        assert hidIndex <= 2**11, hidIndex
         # zero based, return pos (buffer position), lx (length)
         return self.hn_pagemap["rgibAlloc"][hidIndex-1]
 
-    def _read_utf16(self, ptag):
+    def get_buffer(self, ptag):
         px = self._props[ptag]
-        assert px["propType"] == 0x001F
-        pos, lx = self._get_hid_pos_lx(px)
-        return decode(self.buf[pos:pos+lx], "UTF-16LE", "replace")
-
-    def _read_binary(self, ptag):
-        px = self._props[ptag]
-        allowed = (0x0102, 0x0040, 0x0014)
-        assert px["propType"] in allowed, hex(px["propType"])
-        pos, lx = self._get_hid_pos_lx(px)
-        return self.buf[pos:pos+lx]
-
-    def _read_ulong(self, ptag):
-        px = self._props[ptag]
-        va = ulong_from_tuple(px["value"])
-        return va
-
-    def _read_boolean(self, ptag):
-        return not self._read_ulong(ptag) == 0
+        pt_name, pt_size, _ = prop_types[px["propType"]]
+        # 2.3.3.3 PC BTH Record (dwValueHnid, p.60)
+        if pt_size > 0 and pt_size <= 4:
+            return memoryview(bytearray(px["value"]))
+        else:
+            hnid = ulong_from_tuple(px["value"])
+            nid_type = get_hnid_type(hnid)
+            if nid_type == "HID":
+                pos, lx = self._get_hid_pos_lx(px)
+                return self.buf[pos:pos+lx]
+            else:
+                # TODO by NID subnode
+                sx = encode("NID::NotImplementedError", "UTF-16LE")
+                return memoryview(bytearray(sx))
 
     def _read_entry_id(self, ptag):
         b2 = self._read_binary(ptag)
@@ -435,10 +490,6 @@ class PropertyContext:
         va = dict(eng.out)
         assert va["rgbFlags"] == (0, 0, 0, 0)
         return va
-
-    def read_prop(self, ptag):
-        px = self._props[ptag]
-        return self._read_fun.get(px["propType"], self._read_binary)(ptag)
 
 
 class TableContext:
@@ -583,22 +634,59 @@ def test_root_storage(ndb):
             # pprint(tc._col_desc, width=110)
 
 
-def test_PC(ndb, pc_nid_type, _debug=False):
-    print "="*60, "\n", nid_types[pc_nid_type], "\n"
-    def pc_info(pc):
-        pprint([("0x%04X %s" % (
-            k, pc._props[k]["propCode"]), pc.read_prop(k))
-                for k in pc._props])
-    for nx in ndb._nbt:
-        nid_type = nx["nid"] & 0x1F
-        if nid_type != pc_nid_type:
-            continue
-        if _debug:
-            print "="*60, "\n", nx, "\n"
-            pc = PropertyContext(nx["nid"])
-            pc_info(pc)
+def test_PC_list(ndb):
+    def test(pc_nid_type, _debug=0):
+        print "="*60, "\n", nid_types[pc_nid_type], "\n"
+        for nx in ndb._nbt:
+            nid_type = nx["nid"] & 0x1F
+            if nid_type != pc_nid_type:
+                continue
+            if _debug > 0:
+                pc = PropertyContext(nx["nid"])
+                if _debug > 1:
+                    print "="*60, "\n", nx, "\n"
+                    pprint([("0x%04X %s" % (
+                        k, pc._props[k]["propCode"]), pc.read_prop(k))
+                            for k in pc._props])
+            else:
+                print nx
+    test(0x02)  # normal folders
+    test(0x05)  # attachments
+    test(0x04)  # normal message
+    test(0x08)  # assoc message
+
+
+def test_PC(nid):
+    pc = PropertyContext(nid)
+    for k, p in pc._props.iteritems():
+        value_buf = pc.get_buffer(p['propTag'])
+        pv = PropertyValue(p["propType"], value_buf)
+        pt_code, pt_size, _, = pv.pt_desc
+        ptag = all_props_types.get(p['propTag'], None)
+        ptag = ptag and ptag["name"] or p["propCode"]
+        try:
+            value = pv.get_value()
+        except NotImplementedError:
+            out = StringIO()
+            dump_hex(value_buf, out=out)
+            value = out.getvalue().strip()
+        print "0x%04X %-10s %4d %6d %-40s" % (
+            k, pt_code, pt_size, len(value_buf), ptag, ),
+        if value is not None and len(unicode(value)) >= 30:
+            print "\n%s\n" % value
         else:
-            print nx
+            print "[%s]" % value
+    print
+
+
+def test_PC_dump_type(pc_nid_type):
+    def filter(nx):
+        nid_type = nx["nid"] & 0x1F
+        return nid_type == pc_nid_type
+
+    nx_list = [x for x in ndb._nbt if filter(x)]
+    for nx in nx_list[1:]:
+        test_PC(nx["nid"])
 
 
 if __name__ == '__main__':
@@ -608,11 +696,11 @@ if __name__ == '__main__':
     with gzip.open("%s.pst.gz" % fnm, "rb") as fin:
         header = read_header(fin)
         ndb = NDBLayer(fin, header)
-
         test_ndb_info(ndb)
         # test_dump_ndb(ndb)
         # test_root_storage(ndb)
-        test_PC(ndb, 0x02) # normal folders
-        test_PC(ndb, 0x05) # attachments
-        test_PC(ndb, 0x04) # normal message 
-        test_PC(ndb, 0x08) # assoc message 
+        # test_PC_list(ndb)
+        test_PC(0x00200024)  # normal message
+        # test_PC(0x00008082)  # normal foder
+        # test_PC_dump_type(0x02)  # normal folders
+        # test_PC_dump_type(0x04)  # normal message
