@@ -224,8 +224,8 @@ class NDBLayer:
         self._header = header
         self._bbt = []
         self._nbt = []
-        self._read_nbt(self._header["brefNBT"])
         self._read_bbt(self._header["brefBBT"])
+        self._read_nbt(self._header["brefNBT"])
         # TODO create tree structutes for BBT and NBT
         # тъй като файлът е read-only, за сега,
         # hash структура също върши работа
@@ -235,6 +235,8 @@ class NDBLayer:
         if bbt["meta"]["entriesType"] == "BT":
             for bt in bbt["entries"]:
                 ent = read_ndb_page(fin, bt["bref"])
+                for ex in ent["entries"]:
+                    ex["internal"] = ex["bref"][0] & 2 != 0
                 self._bbt.extend(ent["entries"])
         self._bbtx = {}
         for bx in self._bbt:
@@ -253,19 +255,23 @@ class NDBLayer:
 
     def _read_block(self, bbt):
         bid, ib = bbt["bref"]
+        print "_read_block::bbt", bbt
         # block_size is near greater multiple by 64
-        # 16 is the trailer blocak size
-        block_size = (((bbt["cb"] + 16)-1)/64 + 1)*64
-        # FIXME 2.2.2.8.3.2 Data Tree XBLOCKS, XXBLOCKS
-        assert block_size <= 8192  # 8176 + block trailer
+        # 16 is the trailer block size
+        block_size = (((bbt["cb"] + 16) - 1) / 64 + 1) * 64
+        assert block_size <= 8192  # 8176 + block trailer(16)
         fin.seek(ib)
         buf = memoryview(fin.read(block_size))
         # dump_hex(buf)
         BLOCK_TRAILER = """\
-        cb    WORD
-        wSig  WORD
-        dwCRC DWORD
-        bid   BID
+        cb    WORD  # The amount of data, in bytes, contained within
+                    # the data section of the block.
+                    # This value does not include the block trailer or any
+                    # unused bytes that can exist after the end of the data
+                    # and before the start of the block trailer.
+        wSig  WORD  # Block signature (calculated)
+        dwCRC DWORD # 32-bit CRC of the cb bytes (calculated)
+        bid   BID   # The BID (section 2.2.2.2) of the data block
         """
         # block trailer is the last 16 bytes
         eng = UnpackDesc(buf, pos=block_size-16)
@@ -275,16 +281,68 @@ class NDBLayer:
         assert block_trailer["cb"] == bbt["cb"]
         assert block_trailer["bid"] == bid
         data = buf[0:block_trailer["cb"]]
-        # decode with Permutation Algorithm (section 5.1)
-        if header["bCryptMethod"] == 0x01:
-            data = decode_permute(data)
+        if not bbt["internal"]:
+            # decode with Permutation Algorithm (section 5.1)
+            # only for user data blocks
+            if header["bCryptMethod"] == 0x01:
+                data = decode_permute(data)
+        return data
+
+    def _read_block_sign(self, buf):
+        BLOCK_SIGNATURE = """\
+        btype  byte # Block type
+                    # 0x01 to indicate an XBLOCK or XXBLOCK.
+                    # 0x02 to indicate an SLBLOCK or SIBLOCK
+        cLevel byte # Block subtype
+                    # 0x01 XBLOCK, 0x02 XXBLOCK
+                    # 0x00 SLBLOCK, 0x01 SIBLOCK
+        cEnt   WORD # The number of entries, depends on type
+        """
+        eng = UnpackDesc(buf)
+        eng.unpack2(BLOCK_SIGNATURE)
+        return dict(eng.out), eng.pos
+
+    def _read_data_block(self, bid):
+        bx = self._bbtx[bid]
+        data = self._read_block(bx)
+        if bx["internal"]:
+            # 2.2.2.8.3.2 Data Tree XBLOCKS, XXBLOCKS
+            data_bids = []
+
+            def read_xblock_bids(data):
+                dump_hex(data)
+                sign, pos = self._read_block_sign(data)
+                assert sign["btype"] == 1
+                icb = unpackb("<L", data, pos)[0]
+                bids = unpackb("<%dQ" % sign["cEnt"], data, pos+4)
+                if sign["cLevel"] == 1:  # XBLOCK
+                    data_bids.extend(bids)
+                    return icb
+                if sign["cLevel"] == 2:  # XXBLOCK
+                    totb = 0
+                    for bidx in bids:
+                        bx = self._bbtx[bidx]
+                        datax = self._read_block(bx)
+                        totb += read_xblock_bids(datax)
+                    return totb
+                raise KeyError(sign["cLevel"])
+            totb = read_xblock_bids(data)
+            print data_bids, totb
+            out_data = bytearray()
+            for bix in data_bids:
+                data = self._read_data_block(bix)
+                out_data.extend(data)
+            data = memoryview(out_data)
         return data
 
     def read_nid(self, nid):
         nx = self._nbtx[nid]
-        bx = self._bbtx[nx["bidData"]]
-        print "read_nid::(nx=%s\n%sbx=%s)" % (nx, " "*11, bx)
-        return self._read_block(bx)
+        return self._read_data_block(nx["bidData"])
+
+    def read_nid_sub(self, nid, hnid):
+        nx = self._nbtx[nid]
+        bid = nx["subEntries"][hnid]["bid"]
+        return self._read_data_block(bid)
 
 
 def parse_heap_on_node(buf):
