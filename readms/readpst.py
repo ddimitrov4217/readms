@@ -248,10 +248,60 @@ class NDBLayer:
         if nbt["meta"]["entriesType"] == "BT":
             for bt in nbt["entries"]:
                 ent = read_ndb_page(fin, bt["bref"])
+                for ex in ent["entries"]:
+                    sbid = ex["bidSub"]
+                    if sbid != 0:
+                        # read 2.2.2.8.3.3 Subnode BTree
+                        print "_read_nbt::ex[nid]", ex["nid"]
+                        ex["subEntries"] = self._read_sub_btree(sbid)
                 self._nbt.extend(ent["entries"])
         self._nbtx = {}
         for nx in self._nbt:
             self._nbtx[nx["nid"]] = nx
+
+    def _read_sub_btree(self, bid):
+        bx = self._bbtx[bid]
+        data = self._read_block(bx)
+        sign, pos = self._read_block_sign(data)
+        print "_read_sub_btree::", sign, pos
+        assert sign["btype"] == 2
+
+        # 2.2.2.8.3.3.1.1 SLENTRY (Leaf Block Entry)
+        def read_SL_entries(buf, pos):
+            SL_ENTRY = """\
+            nid    NID # Local NID of the child subnode.
+                       # This NID is guaranteed to be unique
+                       # only within the parent node.
+            bid    BID # The BID of the data block associated
+                       # with the child subnode.
+            bidSub BID # The BID of the child subnode of this
+                       # child subnode.
+            """
+            eng = UnpackDesc(buf, pos=pos)
+            for _ in range(sign["cEnt"]):
+                eng.unpack2(SL_ENTRY)
+            entries = [dict(eng.out[3*p:3*(p+1)])
+                       for p in range(len(eng.out)/3)]
+            for ex in entries:
+                # FIXME много странно, че само така работи
+                ex["nid"] = ex["nid"] & 0xFFFFFFFF
+            entries = dict([(x["nid"], x) for x in entries])
+            return entries, eng.pos
+
+        c_level = sign["cLevel"]
+        if c_level == 0:
+            # 2.2.2.8.3.3.1 SLBLOCKs
+            pos += 4  # dwPadding (4 bytes)
+            entries, pos = read_SL_entries(data, pos)
+            pprint(("_read_SLBLOCKs", entries))
+            dump_hex(data)
+        elif c_level == 1:
+            # TODO 2.2.2.8.3.3.2 SIBLOCKs
+            raise NotImplementedError
+        else:
+            raise KeyError(c_level)
+        # TODO recursion on entries::bidSub
+        return entries
 
     def _read_block(self, bbt):
         bid, ib = bbt["bref"]
@@ -327,7 +377,6 @@ class NDBLayer:
                     return totb
                 raise KeyError(sign["cLevel"])
             totb = read_xblock_bids(data)
-            print data_bids, totb
             out_data = bytearray()
             for bix in data_bids:
                 data = self._read_data_block(bix)
@@ -341,6 +390,7 @@ class NDBLayer:
 
     def read_nid_sub(self, nid, hnid):
         nx = self._nbtx[nid]
+        print "read_nid_sub::", nid, hnid
         bid = nx["subEntries"][hnid]["bid"]
         return self._read_data_block(bid)
 
@@ -477,6 +527,7 @@ class PropertyValue:
 class PropertyContext:
     # FIXME реализира и част от общата функционалност на BTH
     def __init__(self, nid, _debug=0):
+        self.nid = nid
         self.buf = ndb.read_nid(nid)  # read message store description
         self.hn_header, self.hn_pagemap = parse_heap_on_node(self.buf)
         assert self.hn_header["bClientSig"][0] == "bTypePC"
@@ -529,9 +580,7 @@ class PropertyContext:
                 pos, lx = self._get_hid_pos_lx(px)
                 return self.buf[pos:pos+lx]
             else:
-                # TODO by NID subnode
-                sx = encode("NID::NotImplementedError", "UTF-16LE")
-                return memoryview(bytearray(sx))
+                return ndb.read_nid_sub(self.nid, hnid)
 
     def _read_entry_id(self, ptag):
         b2 = self._read_binary(ptag)
@@ -630,15 +679,6 @@ class TableContext:
         # TODO read row data
 
 
-def test_dump_ndb(ndb):
-    for bx in ndb._bbt:
-        print "bx", bx
-        print "="*60, "\nAll blocks dump\n"
-        ndb._read_block(bx)
-        print "="*60, "\nNBT structure\n"
-        pprint(ndb._nbt)
-
-
 def test_ndb_info(ndb):
     print "="*60, "\nNDB Layer info\n"
     h1 = dict([(a, b) for a, b in ndb._header.iteritems()
@@ -707,14 +747,14 @@ def test_PC_list(ndb):
                         k, pc._props[k]["propCode"]), pc.read_prop(k))
                             for k in pc._props])
             else:
-                print nx
+                pprint(nx)
     test(0x02)  # normal folders
     test(0x05)  # attachments
     test(0x04)  # normal message
     test(0x08)  # assoc message
 
 
-def test_PC(nid):
+def test_PC(nid, _print_out=True):
     pc = PropertyContext(nid)
     for k, p in pc._props.iteritems():
         value_buf = pc.get_buffer(p['propTag'])
@@ -728,12 +768,13 @@ def test_PC(nid):
             out = StringIO()
             dump_hex(value_buf, out=out)
             value = out.getvalue().strip()
-        print "0x%04X %-10s %4d %6d %-40s" % (
-            k, pt_code, pt_size, len(value_buf), ptag, ),
-        if value is not None and len(unicode(value)) >= 30:
-            print "\n%s\n" % value
-        else:
-            print "[%s]" % value
+        if _print_out:
+            print "0x%04X %-10s %4d %6d %-40s" % (
+                k, pt_code, pt_size, len(value_buf), ptag, ),
+            if value is not None and len(unicode(value)) >= 30:
+                print "\n%s\n" % value
+            else:
+                print "[%s]" % value
     print
 
 
@@ -744,7 +785,7 @@ def test_PC_dump_type(pc_nid_type):
 
     nx_list = [x for x in ndb._nbt if filter(x)]
     for nx in nx_list[1:]:
-        test_PC(nx["nid"])
+        test_PC(nx["nid"], _print_out=False)
 
 
 if __name__ == '__main__':
@@ -755,7 +796,7 @@ if __name__ == '__main__':
         header = read_header(fin)
         ndb = NDBLayer(fin, header)
         test_ndb_info(ndb)
-        # test_dump_ndb(ndb)
+        # pprint(ndb._nbt)
         # test_root_storage(ndb)
         # test_PC_list(ndb)
         test_PC(0x00200024)  # normal message
