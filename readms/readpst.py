@@ -249,6 +249,12 @@ class NDBLayer:
             for bt in nbt["entries"]:
                 ent = read_ndb_page(fin, bt["bref"])
                 for ex in ent["entries"]:
+                    ex["type"] = ex["nid"] & 0x1F
+                    type_desc = nid_types.get(ex["type"], None)
+                    if type_desc is not None:
+                        ex["typeCode"] = type_desc[0]
+                    else:
+                        ex["typeCode"] = "0x%04X" % ex["type"]
                     sbid = ex["bidSub"]
                     if sbid != 0:
                         # read 2.2.2.8.3.3 Subnode BTree
@@ -734,10 +740,9 @@ def test_root_storage(ndb):
 
 def test_PC_list(ndb):
     def test(pc_nid_type, _debug=0):
-        print "="*60, "\n", nid_types[pc_nid_type], "\n"
+        print "="*60, "\n", pc_nid_type, "\n"
         for nx in ndb._nbt:
-            nid_type = nx["nid"] & 0x1F
-            if nid_type != pc_nid_type:
+            if nx["typeCode"] != pc_nid_type:
                 continue
             if _debug > 0:
                 pc = PropertyContext(nx["nid"])
@@ -748,10 +753,10 @@ def test_PC_list(ndb):
                             for k in pc._props])
             else:
                 pprint(nx)
-    test(0x02)  # normal folders
-    test(0x05)  # attachments
-    test(0x04)  # normal message
-    test(0x08)  # assoc message
+    test("NORMAL_FOLDER")
+    test("ATTACHMENT")
+    test("NORMAL_MESSAGE")
+    test("ASSOC_MESSAGE")
 
 
 def test_PC(nid, _print_out=True):
@@ -780,8 +785,7 @@ def test_PC(nid, _print_out=True):
 
 def test_PC_dump_type(pc_nid_type):
     def filter(nx):
-        nid_type = nx["nid"] & 0x1F
-        return nid_type == pc_nid_type
+        return nx["typeCode"] == pc_nid_type
 
     nx_list = [x for x in ndb._nbt if filter(x)]
     for nx in nx_list[1:]:
@@ -796,10 +800,10 @@ if __name__ == '__main__':
         header = read_header(fin)
         ndb = NDBLayer(fin, header)
         test_ndb_info(ndb)
-        # pprint(ndb._nbt)
+        pprint(ndb._nbt)
         # test_root_storage(ndb)
-        # test_PC_list(ndb)
-        test_PC(0x00200024)  # normal message
+        test_PC_list(ndb)
+        # test_PC(0x00200024)  # normal message
         # test_PC(0x00008082)  # normal foder
-        # test_PC_dump_type(0x02)  # normal folders
-        # test_PC_dump_type(0x04)  # normal message
+        # test_PC_dump_type("NORMAL_FOLDER")
+        # test_PC_dump_type("NORMAL_MESSAGE")
