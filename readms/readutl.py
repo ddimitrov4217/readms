@@ -122,5 +122,18 @@ class UnpackDesc:
             self.pos += calcsize(stf)
 
 
+def run_profile(fun, *argv, **kwargv):
+    from cProfile import Profile
+    from pstats import Stats
+    prof = Profile()
+    prof.enable()
+    result = fun(*argv, **kwargv)
+    prof.disable()
+    stat = Stats(prof).strip_dirs()
+    stat = stat.sort_stats("tottime")
+    stat.print_stats()
+    return result
+
+
 def ulong_from_tuple(value):
     return sum(map(lambda x, y: 256**x*y, (0, 1, 2, 3), value))

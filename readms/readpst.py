@@ -2,12 +2,14 @@
 # vim:ft=python:et:ts=4:sw=4:ai
 
 import gzip
+import time
 from codecs import decode, encode
 from StringIO import StringIO
 from datetime import datetime, timedelta
 from struct import unpack_from as unpackb
 from readutl import (
-    dump_hex, decode_permute, ulong_from_tuple, UnpackDesc)
+    dump_hex, decode_permute, ulong_from_tuple, UnpackDesc,
+    run_profile)
 from metapst import (
     page_types, nid_types, prop_types, all_props_types,
     hn_header_client_sig,
@@ -224,11 +226,13 @@ class NDBLayer:
         self._header = header
         self._bbt = []
         self._nbt = []
+        start = time.time()
         self._read_bbt(self._header["brefBBT"])
         self._read_nbt(self._header["brefNBT"])
         # TODO create tree structutes for BBT and NBT
         # тъй като файлът е read-only, за сега,
         # hash структура също върши работа
+        self._done_time = time.time() - start
 
     def _read_bbt(self, bref):
         bbt = read_ndb_page(fin, bref)
@@ -271,7 +275,7 @@ class NDBLayer:
         bx = self._bbtx[bid]
         data = self._read_block(bx)
         sign, pos = self._read_block_sign(data)
-        print "_read_sub_btree::", sign, pos
+        # print "_read_sub_btree::", sign, pos
         assert sign["btype"] == 2
 
         # 2.2.2.8.3.3.1.1 SLENTRY (Leaf Block Entry)
@@ -301,8 +305,8 @@ class NDBLayer:
             # 2.2.2.8.3.3.1 SLBLOCKs
             pos += 4  # dwPadding (4 bytes)
             entries, pos = read_SL_entries(data, pos)
-            pprint(("_read_SLBLOCKs", entries))
-            dump_hex(data)
+            # pprint(("_read_SLBLOCKs", entries))
+            # dump_hex(data)
         elif c_level == 1:
             # TODO 2.2.2.8.3.3.2 SIBLOCKs
             raise NotImplementedError
@@ -313,7 +317,7 @@ class NDBLayer:
 
     def _read_block(self, bbt):
         bid, ib = bbt["bref"]
-        print "_read_block::bbt", bbt
+        # print "_read_block::bbt", bbt
         # block_size is near greater multiple by 64
         # 16 is the trailer block size
         block_size = (((bbt["cb"] + 16) - 1) / 64 + 1) * 64
@@ -335,7 +339,7 @@ class NDBLayer:
         eng = UnpackDesc(buf, pos=block_size-16)
         eng.unpack2(BLOCK_TRAILER)
         block_trailer = dict(eng.out)
-        print "_read_block::block_trailer", block_trailer
+        # print "_read_block::block_trailer", block_trailer
         assert block_trailer["cb"] == bbt["cb"]
         assert block_trailer["bid"] == bid
         data = buf[0:block_trailer["cb"]]
@@ -692,8 +696,22 @@ def test_ndb_info(ndb):
     h1 = dict([(a, b) for a, b in ndb._header.iteritems()
                if a in ("ibFileEof", "brefNBT",
                         "brefBBT", "bCryptMethod")])
-    print "file name [%s], usable data [%d] bytes\n%s" % (
-        fnm, sum(x["cb"] for x in ndb._bbt), h1, )
+    print "[{0:s}]:: {1:,d} bytes".format(
+        fnm, sum(x["cb"] for x in ndb._bbt)),
+    print "in {0:,d} blocks by {1:,d} nids".format(
+        len(ndb._bbt), len(ndb._nbt))
+    pprint(h1, indent=4)
+    nid_type_cnt = {}
+    for nx in ndb._nbt:
+        nt = nx["typeCode"]
+        if nt not in nid_type_cnt:
+            nid_type_cnt[nt] = 0
+        nid_type_cnt[nt] += 1
+    kt = nid_type_cnt.keys()
+    kt.sort()
+    for nm in kt:
+        print "  %-22s %5d" % (nm, nid_type_cnt[nm])
+    print "done in {0:,.3f} sec".format(ndb._done_time)
     print
 
 
@@ -801,11 +819,12 @@ if __name__ == '__main__':
     fnm = len(argv) > 1 and argv[1] or u"test"
     with open(path.join("pstdata", "%s.pst" % fnm), "rb") as fin:
         header = read_header(fin)
-        ndb = NDBLayer(fin, header)
+        # ndb = NDBLayer(fin, header)
+        ndb = run_profile(NDBLayer, fin, header)
         test_ndb_info(ndb)
-        pprint(ndb._nbt)
+        # pprint(ndb._nbt)
         # test_root_storage(ndb)
-        test_PC_list(ndb)
+        # test_PC_list(ndb)
         # test_PC(0x00200024)  # normal message
         # test_PC(0x00008082)  # normal foder
         # test_PC_dump_type("NORMAL_FOLDER")
