@@ -234,10 +234,11 @@ class NDBLayer:
         bbt = read_ndb_page(fin, bref)
         if bbt["meta"]["entriesType"] == "BT":
             for bt in bbt["entries"]:
-                ent = read_ndb_page(fin, bt["bref"])
-                for ex in ent["entries"]:
-                    ex["internal"] = ex["bref"][0] & 2 != 0
-                self._bbt.extend(ent["entries"])
+                self._read_bbt(bt["bref"])
+        else:
+            for ex in bbt["entries"]:
+                ex["internal"] = ex["bref"][0] & 2 != 0
+            self._bbt.extend(bbt["entries"])
         self._bbtx = {}
         for bx in self._bbt:
             bid, bbt = bx["bref"]
@@ -247,20 +248,21 @@ class NDBLayer:
         nbt = read_ndb_page(fin, bref)
         if nbt["meta"]["entriesType"] == "BT":
             for bt in nbt["entries"]:
-                ent = read_ndb_page(fin, bt["bref"])
-                for ex in ent["entries"]:
-                    ex["type"] = ex["nid"] & 0x1F
-                    type_desc = nid_types.get(ex["type"], None)
-                    if type_desc is not None:
-                        ex["typeCode"] = type_desc[0]
-                    else:
-                        ex["typeCode"] = "0x%04X" % ex["type"]
-                    sbid = ex["bidSub"]
-                    if sbid != 0:
-                        # read 2.2.2.8.3.3 Subnode BTree
-                        print "_read_nbt::ex[nid]", ex["nid"]
-                        ex["subEntries"] = self._read_sub_btree(sbid)
-                self._nbt.extend(ent["entries"])
+                self._read_nbt(bt["bref"])
+        else:
+            for ex in nbt["entries"]:
+                ex["type"] = ex["nid"] & 0x1F
+                type_desc = nid_types.get(ex["type"], None)
+                if type_desc is not None:
+                    ex["typeCode"] = type_desc[0]
+                else:
+                    ex["typeCode"] = "0x%04X" % ex["type"]
+                sbid = ex["bidSub"]
+                if sbid != 0:
+                    # read 2.2.2.8.3.3 Subnode BTree
+                    # print "_read_nbt::ex[nid]", ex["nid"]
+                    ex["subEntries"] = self._read_sub_btree(sbid)
+            self._nbt.extend(nbt["entries"])
         self._nbtx = {}
         for nx in self._nbt:
             self._nbtx[nx["nid"]] = nx
@@ -794,9 +796,10 @@ def test_PC_dump_type(pc_nid_type):
 
 if __name__ == '__main__':
     from pprint import pprint
-    # fnm = u"test"
-    fnm = u"Други__backup"
-    with gzip.open("%s.pst.gz" % fnm, "rb") as fin:
+    from os import path
+    from sys import argv
+    fnm = len(argv) > 1 and argv[1] or u"test"
+    with open(path.join("pstdata", "%s.pst" % fnm), "rb") as fin:
         header = read_header(fin)
         ndb = NDBLayer(fin, header)
         test_ndb_info(ndb)
