@@ -213,7 +213,7 @@ class NDBLayer:
             data_bids = []
 
             def read_xblock_bids(data):
-                dump_hex(data)
+                # dump_hex(data)
                 sign, pos = self._read_block_sign(data)
                 assert sign["btype"] == 1
                 icb = unpackb("<L", data, pos)[0]
@@ -243,7 +243,7 @@ class NDBLayer:
 
     def read_nid_sub(self, nid, hnid):
         nx = self._nbtx[nid]
-        print "read_nid_sub::", nid, hnid
+        # print "read_nid_sub::", nid, hnid
         bid = nx["subEntries"][hnid]["bid"]
         return self._read_data_block(bid)
 
@@ -279,7 +279,7 @@ class NodeContext:
 
     def _dump_HN_HDR(self, bx, title=None):
         # dump_hex(buf)
-        print "\n%s::heap_on_node:" % title 
+        print "\n%s::heap_on_node:" % title
         pprint((self._hn_header, self._hn_pagemap), indent=4)
         print
         for pos, lx in self._hn_pagemap["rgibAlloc"]:
@@ -335,6 +335,10 @@ class PropertyValue:
         return unpackb("<L", pbuf)[0] == 1L
 
     @classmethod
+    def _read_Integer16(cls, pbuf):
+        return unpackb("<H", pbuf)
+
+    @classmethod
     def _read_Integer32(cls, pbuf):
         return unpackb("<L", pbuf)
 
@@ -354,7 +358,7 @@ class PropertyValue:
 
 
 class PropertyContext(NodeContext):
-    def __init__(self, nid):
+    def __init__(self, ndb, nid):
         NodeContext.__init__(self, ndb, nid)
         assert self._hn_header["bClientSig"][0] == "bTypePC"
         self._read_props_map()
@@ -381,7 +385,7 @@ class PropertyContext(NodeContext):
                 pos, lx = self._get_hid_pos_lx(px)
                 return self._buf[pos:pos+lx]
             else:
-                return ndb.read_nid_sub(self.nid, hnid)
+                return self._ndb.read_nid_sub(self._nid, hnid)
 
     def _read_entry_id(self, ptag):
         b2 = self._read_binary(ptag)
@@ -568,8 +572,8 @@ def test_PC_list(ndb):
     test("ASSOC_MESSAGE")
 
 
-def test_PC(nid, _print_out=True):
-    pc = PropertyContext(nid)
+def test_PC(ndb, nid, _print_out=True):
+    pc = PropertyContext(ndb, nid)
     for k, p in pc._props.iteritems():
         value_buf = pc.get_buffer(p['propTag'])
         pv = PropertyValue(p["propType"], value_buf)
@@ -613,7 +617,7 @@ if __name__ == '__main__':
         # pprint(ndb._nbt)
         # test_root_storage(ndb)
         # test_PC_list(ndb)
-        # test_PC(0x00200024)  # normal message
+        # test_PC(int(argv[2]))  # normal message
         # test_PC(0x00008082)  # normal foder
         # test_PC_dump_type("NORMAL_FOLDER")
         # test_PC_dump_type("NORMAL_MESSAGE")

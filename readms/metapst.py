@@ -137,6 +137,7 @@ _prop_types = """\
 0x001F String 0 String of Unicode characters in UTF-16LE
 0x0102 Binary 0 COUNT field followed by that many bytes
 0x000B Boolean 1 restricted to 1 or 0
+0x0002 Integer16 2 16-bit integer
 0x0003 Integer32 4 32-bit integer
 0x0040 Time 8 64-bit integer representing the number
               of 100-nanosecond intervals since January 1, 1601
@@ -390,10 +391,6 @@ hidRoot    DWORD # This is the HID that points to the BTH entries
 HN_HDR = UnpackDesc.struct_model(_HN_HDR)
 HN_PAGE_MAP = UnpackDesc.struct_model(_HN_PAGE_MAP)
 BTH_HEADER = UnpackDesc.struct_model(_BTH_HEADER)
-print HN_HDR
-print HN_PAGE_MAP
-print BTH_HEADER
-
 
 # 2.3.3.3 PC BTH Record
 _PC_BTH_RECORD = """\
@@ -417,7 +414,6 @@ value    byte[4]  # Depending on the data size of the property type
                   # Y | NA        | NID | NID subnode, >3580 bytes
 """
 PC_BTH_RECORD = UnpackDesc.struct_model(_PC_BTH_RECORD)
-print PC_BTH_RECORD
 
 
 def enrich_prop_code(props):
