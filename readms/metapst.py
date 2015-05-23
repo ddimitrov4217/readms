@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-from readutl import ulong_from_tuple
+from readutl import ulong_from_tuple, UnpackDesc
 
 # Описанията са от файла [MS-PST] — v20100627
 # Outlook Personal Folders File Format (.pst) Structure Specification
@@ -152,6 +152,203 @@ for _line in _prop_types.splitlines():
         _ptyp, _bytes, _desc = prop_types[_numh]
         prop_types[_numh] = _ptyp, _bytes, " ".join((_desc, _line.strip()))
 del _line, _numh, _ptyp, _bytes, _desc, _prop_types
+
+# 2.2.2.6 HEADER
+_HEADER_1 = """\
+dwMagic         byte[4]   # MUST be { 0x21, 0x42, 0x44, 0x4E } ("!BDN")
+dwCRCPartial    DWORD
+wMagicClient    byte[2]   # MUST be { 0x53, 0x4D }
+wVer            WORD      # File format version. This value MUST be
+                          # 15 if the file is an ANSI PST file, and MUST be
+                          # 23 if the file is a Unicode PST file.
+wVerClient      WORD      # Client file format version. The version that
+                          # corresponds to the format described in this
+                          # document is 19.
+bPlatformCreate byte      # This value MUST be set to 0x01
+bPlatformAccess byte      # This value MUST be set to 0x01
+dwOpenDBID      DWORD
+dwOpenClaimID   DWORD
+bidUnused       BID       # Unused padding added when the Unicode PST file
+                          # format was created
+bidNextP        BID       # Next page BID. Pages have a special counter for
+                          # allocating bidIndex values. The value of bidIndex
+                          # for BIDs for pages is allocated from this counter
+# bidNextB      BID       # Next BID. This value is the monotonic counter
+#                         # that indicates the BID to be assigned for the
+#                         # next allocated block. BID values advance in
+#                         # increments of 4. See section 2.2.2.2.
+dwUnique        DWORD
+gnid            DWORD[32] # A fixed array of 32 NIDs, each corresponding
+                          # to one of the 32 possible NID_TYPEs (section
+                          # 2.2.2.1). Different NID_TYPEs can have different
+                          # starting nidIndex values. Each of these NIDs
+                          # indicates the last nidIndex value that had been
+                          # allocated for the corresponding NID_TYPE. When a
+                          # NID of a particular type is assigned, the
+                          # corresponding slot in rgnind is also incremented
+                          # by one (1)
+qwAlign         byte[8]   # skip
+cOrphans        DWORD
+ibFileEof       IB        # The size of the PST file, in bytes
+ibAMapLast      IB        # An IB structure (section 2.2.2.3) that contains
+                          # the absolute file offset to the last AMap page
+                          # of the PST file.
+ibAMapFree      CB        # The total free space in all AMaps, combined
+cbPMapFree      CB        # The total free space in all PMaps, combined.
+                          # Because the PMap is deprecated, this value
+                          # SHOULD be zero (0).
+brefNBT         BREF      # A BREF structure that references the root page
+                          # of the Node BTree (NBT)
+brefBBT         BREF      # A BREF structure that references the root page
+                          # of the Block BTree (BBT)
+fAMapValid      byte      # Indicates whether all of the AMaps in this PST file
+                          # are valid. For more details, see section
+                          # 2.6.1.3.8.  This value MUST be set to one of the
+                          # pre-defined values specified in the following
+                          # table.
+                          # 0x00 One or more AMaps in the PST are INVALID
+                          # 0x01 Deprecated. The AMaps are VALID.
+                          # 0x02 The AMaps are VALID.
+bARVec          byte      # Reserved
+cARVec          WORD      # Reserved
+"""
+_HEADER_2 = """\
+bSentinel      byte       # MUST be set to 0x80
+bCryptMethod   byte       # Indicates how the data within the PST
+                          # file is encoded. MUST be set to one of the
+                          # following pre-defined values
+                          # 0x00 Data blocks are not encoded
+                          # 0x01 Permutation Algorithm (section 5.1)
+                          # 0x02 Cyclic Algorithm (section 5.2)
+bReserved      byte[2]    # Reserved; MUST be set to zero (0)
+bidNextB       BID        # Indicates the next available BID value
+dwCRCFull      DWORD
+rgbVersion     byte[3]
+bLockSemaphore byte
+rgbLock        byte[32]
+"""
+HEADER_1 = UnpackDesc.struct_model(_HEADER_1)
+HEADER_2 = UnpackDesc.struct_model(_HEADER_2)
+
+# 2.2.2.7.1 PAGETRAILER
+_PAGE_TRAILER = """\
+ptype         byte
+ptypeRepeat   byte  # MUST be set to the same value as ptype
+wSig          WORD  # Page signature. This value depends on the
+                    # value of the ptype field. This value is zero (0x0000)
+                    # for AMap, PMap, FMap, and FPMap pages.  For BBT, NBT,
+                    # and DList pages, a page / block signature is computed
+                    # (see section 5.5).
+dwCRC         DWORD
+bid           BID   # The BID of the page's block
+"""
+# 2.2.2.7.7.1 BTPAGE
+_BT_PAGE = """\
+cEnt     byte   # The number of BTree entries stored in the page data
+cEntMax  byte   # The maximum number of entries that can fit inside
+                # the page data
+cbEnt    byte   # The size of each BTree entry, in bytes.
+                # Note that in some cases, cbEnt can be greater than the
+                # corresponding size of the corresponding rgentries
+                # structure because of alignment or other considerations.
+                # Implementations MUST use the size specified in cbEnt to
+                # advance to the next entry.
+cLevel   byte   # The depth level of this page.
+                # Leaf pages have a level of 0, whereas intermediate pages
+                # have a level greater than 0.  This value determines the
+                # type of the entries in rgentries, and is interpreted as
+                # unsigned.
+"""
+# 2.2.2.7.7.2 BTENTRY (Intermediate Entries)
+# BT_ENTRY records contain a key value (NID or BID) and a reference
+# to a child BTPAGE page in the BTree
+_BT_ENTRY = """\
+btkey BID   # The key value associated with this BTENTRY.
+            # All the entries in the child BTPAGE referenced by BREF have
+            # key values greater than or equal to this key value. The btkey
+            # is either a NID (zero extended to 8 bytes for Unicode PSTs) or
+            # a BID, depending on the ptype of the page.
+bref  BREF  # BREF (section 2.2.2.4) that points to the child BTPAGE.
+            # contains {BID, IB (file position)}
+"""
+# 2.2.2.7.7.3 BBTENTRY (Leaf BBT Entry)
+# BBT_ENTRY records contain information about blocks and are found
+# in BT_PAGES with cLevel equal to 0, with the ptype of ptypeBBT.
+# These are the leaf entries of the BBT.
+_BBT_ENTRY = """\
+bref BREF # BREF structure (section 2.2.2.4) that contains the BID
+          # and IB of the block that the BBTENTRY references.
+cb   WORD # The count of bytes of the raw data contained in the
+          # block referenced by BREF excluding the block trailer and
+          # alignment padding, if any.
+cRef WORD # Reference count indicating the count of references to
+          # this block. See section 2.2.2.7.7.3.1 regarding how
+          # reference counts work.
+"""
+# 2.2.2.7.7.4 NBTENTRY (Leaf NBT Entry)
+# NBTENTRY records contain information about nodes and are found in
+# BTPAGES with cLevel equal to 0, with the ptype of ptypeNBT. These
+# are the leaf entries of the NBT.
+_NBT_ENTRY = """\
+nid         NID   # The NID (section 2.2.2.1) of the entry.
+                  # Note that the NID is a 4-byte value for both Unicode and
+                  # ANSI formats. However, to stay consistent with the size
+                  # of the btkey member in BTENTRY, the 4-byte NID is
+                  # extended to its 8-byte equivalent for Unicode PST files.
+bidData     BID   # The BID of the data block for this node
+bidSub      BID   # The BID of the subnode block for this node.
+                  # If this value is zero (0), then a subnode block does not
+                  # exist for this node
+nidParent   DWORD # If this node represents a child of a Folder object
+                  # defined in the Messaging Layer, then this value is
+                  # nonzero and contains the NID of the parent Folder
+                  # object's node.  Otherwise, this value is zero (0). See
+                  # section 2.2.2.7.7.4.1 for more information. This field
+                  # is not interpreted by any structure defined at the NDB
+                  # Layer.
+"""
+PAGE_TRAILER = UnpackDesc.struct_model(_PAGE_TRAILER)
+BT_PAGE = UnpackDesc.struct_model(_BT_PAGE)
+BT_ENTRY = UnpackDesc.struct_model(_BT_ENTRY)
+BBT_ENTRY = UnpackDesc.struct_model(_BBT_ENTRY)
+NBT_ENTRY = UnpackDesc.struct_model(_NBT_ENTRY)
+
+# 2.2.2.8.1 BLOCKTRAILER
+_BLOCK_TRAILER = """\
+cb    WORD  # The amount of data, in bytes, contained within
+            # the data section of the block.  This value does not include
+            # the block trailer or any unused bytes that can exist after
+            # the end of the data and before the start of the block trailer.
+wSig  WORD  # Block signature (calculated)
+dwCRC DWORD # 32-bit CRC of the cb bytes (calculated)
+bid   BID   # The BID (section 2.2.2.2) of the data block
+"""
+# 2.2.2.8.3 Block Types
+_BLOCK_SIGNATURE = """\
+btype  byte # Block type
+            # 0x01 to indicate an XBLOCK or XXBLOCK.
+            # 0x02 to indicate an SLBLOCK or SIBLOCK
+cLevel byte # Block subtype
+            # 0x01 XBLOCK, 0x02 XXBLOCK
+            # 0x00 SLBLOCK, 0x01 SIBLOCK
+cEnt   WORD # The number of entries, depends on type
+"""
+# 2.2.2.8.3.3.1.1 SLENTRY (Leaf Block Entry)
+_SL_ENTRY = """\
+nid    NID # Local NID of the child subnode.
+           # This NID is guaranteed to be unique only within the parent
+           # node.
+bid    BID # The BID of the data block associated
+           # with the child subnode.
+bidSub BID # The BID of the child subnode of this child subnode.
+"""
+
+BLOCK_TRAILER = UnpackDesc.struct_model(_BLOCK_TRAILER)
+BLOCK_SIGNATURE = UnpackDesc.struct_model(_BLOCK_SIGNATURE)
+SL_ENTRY = UnpackDesc.struct_model(_SL_ENTRY)
+print BLOCK_TRAILER
+print BLOCK_SIGNATURE
+print SL_ENTRY
 
 
 def enrich_prop_code(props):

@@ -85,18 +85,31 @@ class UnpackDesc:
                                (?P<stf>\w{1,})
                                (?:\s*[[](?P<sz>\d+)[]]){0,1}
                                (?:\s*[#].*){0,1}$""", re.X)
+        patt_sz = re.compile(r"(?P<bsz>\d+){0,1}(?:.*)")
         sd = []
         for s in desc.splitlines():
             g1 = patt.match(s.strip())
             if g1 is None:
                 continue
             name, typz, size = g1.groups()
+            px = strmap[typz]
             if size is not None:
-                typz = "%d%s" % (int(size), strmap[typz],)
+                cnt = int(size)
+                typz = "%d%s" % (cnt, px,)
             else:
-                typz = strmap[typz]
-            sd.append((name, typz,))
+                cnt = 1
+                typz = px
+            bsz = patt_sz.match(px).group("bsz")
+            bsz = bsz is not None and int(bsz) or 1
+            sd.append((name, typz, bsz * cnt))
         return sd
+
+    @classmethod
+    def struct_model(clazz, desc):
+        sd = UnpackDesc.struct_map(desc)
+        stf = "<%s" % "".join([stz for _, stz, _ in sd])
+        return (stf, calcsize(stf),
+                tuple([(name, size) for name, _, size in sd]))
 
     def skip(self, n):
         self.pos += n
@@ -104,16 +117,24 @@ class UnpackDesc:
     def seek(self, pos):
         self.pos = pos
 
-    def unpack1(self, desc):
-        sd = UnpackDesc.struct_map(desc)
-        stf = "<%s" % "".join([stz for name, stz in sd])
-        self.out.extend(zip([name for name, stz in sd],
-                            unpackb(stf, self.buf, self.pos)))
-        sef.pos += calcsize(stf)
+    def unpack(self, model):
+        stf, sz, nx = model
+        data = unpackb(stf, self.buf, self.pos)
+        data_out = {}
+        pos = 0
+        for name, size in nx:
+            if size == 1:
+                data_out[name] = data[pos]
+            else:
+                data_out[name] = data[pos:pos+size]
+            pos += size
+        self.out.append(data_out)
+        self.pos += sz
+        return data_out
 
     def unpack2(self, desc):
         sd = UnpackDesc.struct_map(desc)
-        for nm, stf in [(nm, "<%s" % stz,) for nm, stz in sd]:
+        for nm, stf in [(nm, "<%s" % stz,) for nm, stz, _ in sd]:
             data = unpackb(stf, self.buf, self.pos)
             if len(data) == 1:
                 self.out.append((nm, data[0]))
