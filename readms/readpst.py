@@ -21,24 +21,7 @@ from metapst import (
     BLOCK_TRAILER, BLOCK_SIGNATURE, SL_ENTRY)
 
 
-def read_header(fin):
-    buf = memoryview(fin.read(564))
-    # dump_hex(buf)
-    eng = UnpackDesc(buf)
-    eng.unpack(HEADER_1)
-    eng.skip(4)    # skip dwAlign  DWORD
-    eng.skip(128)  # skip rgbFMap  byte[128] Deprecated FMap
-    eng.skip(128)  # skip rgbFPMap byte[128] Deprecated FPMap
-    eng.unpack(HEADER_2)
 
-    assert eng.pos == len(buf), "pos=%d, len=%d" % (eng.pos, len(buf))
-    out, h2 = eng.out
-    out.update(h2)
-    assert out["dwMagic"] == (0x21, 0x42, 0x44, 0x4E)
-    assert out["wMagicClient"] == (0x53, 0x4D)
-    assert out["wVer"] == 23, "Unicode PST"
-    assert out["bCryptMethod"] in (0x00, 0x01,), "Encrypted PST"
-    return out
 
 
 def read_ndb_page(fin, bref):
@@ -80,8 +63,9 @@ def read_ndb_page(fin, bref):
 
 
 class NDBLayer:
-    def __init__(self, fin, header):
-        self._header = header
+    def __init__(self, file_name):
+        self._fin = open(file_name, "rb")
+        self._read_header()
         self._bbt = []
         self._nbt = []
         start = time.time()
@@ -92,8 +76,41 @@ class NDBLayer:
         # hash структура също върши работа
         self._done_time = time.time() - start
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            self.close()
+        except:
+            from traceback import print_exc
+            print_exc()
+        return False
+
+    def close(self):
+        self._fin.close()
+
+    def _read_header(self):
+        self._fin.seek(0)
+        buf = memoryview(self._fin.read(564))
+        # dump_hex(buf)
+        eng = UnpackDesc(buf)
+        eng.unpack(HEADER_1)
+        eng.skip(4)    # skip dwAlign  DWORD
+        eng.skip(128)  # skip rgbFMap  byte[128] Deprecated FMap
+        eng.skip(128)  # skip rgbFPMap byte[128] Deprecated FPMap
+        eng.unpack(HEADER_2)
+
+        assert eng.pos == len(buf), "pos=%d, len=%d" % (eng.pos, len(buf))
+        self._header, h2 = eng.out
+        self._header.update(h2)
+        assert self._header["dwMagic"] == (0x21, 0x42, 0x44, 0x4E)
+        assert self._header["wMagicClient"] == (0x53, 0x4D)
+        assert self._header["wVer"] == 23, "Unicode PST"
+        assert self._header["bCryptMethod"] in (0x00, 0x01,), "Encrypted PST"
+
     def _read_bbt(self, bref):
-        bbt = read_ndb_page(fin, bref)
+        bbt = read_ndb_page(self._fin, bref)
         if bbt["meta"]["entriesType"] == "BT":
             for bt in bbt["entries"]:
                 self._read_bbt(bt["bref"])
@@ -107,7 +124,7 @@ class NDBLayer:
             self._bbtx[bid] = bx
 
     def _read_nbt(self, bref):
-        nbt = read_ndb_page(fin, bref)
+        nbt = read_ndb_page(self._fin, bref)
         if nbt["meta"]["entriesType"] == "BT":
             for bt in nbt["entries"]:
                 self._read_nbt(bt["bref"])
@@ -169,8 +186,8 @@ class NDBLayer:
         # 16 is the trailer block size
         block_size = (((bbt["cb"] + 16) - 1) / 64 + 1) * 64
         assert block_size <= 8192  # 8176 + block trailer(16)
-        fin.seek(ib)
-        buf = memoryview(fin.read(block_size))
+        self._fin.seek(ib)
+        buf = memoryview(self._fin.read(block_size))
         # dump_hex(buf)
         # block trailer is the last 16 bytes
         eng = UnpackDesc(buf, pos=block_size-16)
@@ -181,7 +198,7 @@ class NDBLayer:
         if not bbt["internal"]:
             # decode with Permutation Algorithm (section 5.1)
             # only for user data blocks
-            if header["bCryptMethod"] == 0x01:
+            if self._header["bCryptMethod"] == 0x01:
                 data = decode_permute(data)
         return data
 
@@ -642,10 +659,9 @@ if __name__ == '__main__':
     from os import path
     from sys import argv
     fnm = len(argv) > 1 and argv[1] or u"test"
-    with open(path.join("pstdata", "%s.pst" % fnm), "rb") as fin:
-        header = read_header(fin)
-        # ndb = NDBLayer(fin, header)
-        ndb = run_profile(NDBLayer, fin, header)
+    fnm = path.join("pstdata", "%s.pst" % fnm)
+    with NDBLayer(fnm) as ndb:
+    # with run_profile(NDBLayer, fnm) as ndb:
         test_ndb_info(ndb)
         # pprint(ndb._nbt)
         # test_root_storage(ndb)

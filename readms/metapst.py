@@ -346,9 +346,6 @@ bidSub BID # The BID of the child subnode of this child subnode.
 BLOCK_TRAILER = UnpackDesc.struct_model(_BLOCK_TRAILER)
 BLOCK_SIGNATURE = UnpackDesc.struct_model(_BLOCK_SIGNATURE)
 SL_ENTRY = UnpackDesc.struct_model(_SL_ENTRY)
-print BLOCK_TRAILER
-print BLOCK_SIGNATURE
-print SL_ENTRY
 
 
 def enrich_prop_code(props):
