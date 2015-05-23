@@ -18,10 +18,9 @@ from metapst import (
 from metapst import (
     HEADER_1, HEADER_2,
     PAGE_TRAILER, BT_PAGE, BT_ENTRY, BBT_ENTRY, NBT_ENTRY,
-    BLOCK_TRAILER, BLOCK_SIGNATURE, SL_ENTRY)
-
-
-
+    BLOCK_TRAILER, BLOCK_SIGNATURE, SL_ENTRY,
+    HN_HDR, HN_PAGE_MAP, BTH_HEADER,
+    PC_BTH_RECORD)
 
 
 def read_ndb_page(fin, bref):
@@ -249,77 +248,53 @@ class NDBLayer:
         return self._read_data_block(bid)
 
 
-def parse_heap_on_node(buf):
-    HN_HDR = """\
-    ibHnpm       WORD # The byte offset to the HN page Map record
-                      # section 2.3.1.5), with respect to the beginning
-                      # of the HNHDR structure
-    bSig         byte # Block signature;
-                      # MUST be set to 0xEC to indicate a HN
-    bClientSig   byte # Client signature.
-        # This value describes the higher-level structure that is
-        # implemented on top of the HN. This value is intended as a hint
-        # for a higher-level structure and has no meaning for structures
-        # defined at the HN level. The following values are pre-defined
-        # for bClientSig. All other values not described in the
-        # following table are reserved and MUST NOT be assigned or used.
-        # See hn_header_client_sig.
-    hidUserRoot  DWORD # HID that points to the User Root record.
-    rgbFillLevel byte[4] # Per-block Fill Level Map.
-        # This array consists of eight 4-bit values that indicate the
-        # fill level for each of the first 8 data blocks (including this
-        # header block).
-    """
-    eng = UnpackDesc(buf, pos=0)
-    eng.unpack2(HN_HDR)
-    hn_header = dict(eng.out)
-    assert hn_header["bSig"] == 0xEC
-    hn_header["bClientSig"] = hn_header_client_sig[hn_header["bClientSig"]]
+class NodeContext:
+    def __init__(self, ndb, nid):
+        self._ndb = ndb
+        self._nid = nid
+        self._buf = ndb.read_nid(nid)  # read message store description
+        self._parse_HN_HDR(self._buf)
+        # self._dump_HN_HDR(self._buf, title="NodeContext[HND]")
+        hid = get_hid_index(self._hn_header["hidUserRoot"])
+        pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]
+        self._parse_bt_header(self._buf[pos:pos+lx])
 
-    HN_PAGE_MAP = """\
-    cAlloc WORD # Allocation count
-    cFree  WORD # Free count
-    """
-    eng = UnpackDesc(buf, pos=hn_header["ibHnpm"])
-    eng.unpack2(HN_PAGE_MAP)
-    hn_page_map = dict(eng.out)
+    def _parse_HN_HDR(self, buf):
+        self._hn_header = UnpackDesc(buf, pos=0).unpack(HN_HDR)
+        assert self._hn_header["bSig"] == 0xEC
+        self._hn_header["bClientSig"] = hn_header_client_sig[
+            self._hn_header["bClientSig"]]
 
-    eng = UnpackDesc(buf, pos=eng.pos)
-    for p in range(0, hn_page_map["cAlloc"]+1):
-        eng.unpack2("_ WORD")
-    # calculate start-offset, size
-    allocs = [v for n, v in eng.out]
-    allocs = map(lambda x, y: (y, x-y), allocs[1:], allocs[:-1])
-    hn_page_map["rgibAlloc"] = allocs
-    return (hn_header, hn_page_map, )
+        eng = UnpackDesc(buf, pos=self._hn_header["ibHnpm"])
+        self._hn_pagemap = eng.unpack(HN_PAGE_MAP)
 
+        pos = eng.pos
+        allocs = []
+        for p in range(0, self._hn_pagemap["cAlloc"]+1):
+            allocs.append(unpackb("<H", buf, pos)[0])
+            pos += 2
+        # calculate start-offset, size
+        allocs = map(lambda x, y: (y, x-y), allocs[1:], allocs[:-1])
+        self._hn_pagemap["rgibAlloc"] = allocs
 
-def parser_bt_header(buf):
-    PC_BTH_HEADER = """\
-    bType byte # MUST be bTypeBTH (0xB5)
-    cbKey byte # Size of the BTree Key value, in bytes.
-               # This value MUST be set to 2, 4, 8, or 16
-    cbEnt byte # Size of the data value, in bytes.
-               # This MUST be greater than zero (0)
-               # and less than or equal to 32.
-    bIdxLevels byte  # Index depth.
-    hidRoot    DWORD # This is the HID that points to the BTH entries
-        # for this BTHHEADER. The data consists of an array of BTH Records.
-        # This value is set to zero (0) if the BTH is empty.
-    """
-    eng = UnpackDesc(buf)
-    eng.unpack2(PC_BTH_HEADER)
-    assert eng.pos == len(buf)
-    return dict(eng.out)
+    def _dump_HN_HDR(self, bx, title=None):
+        # dump_hex(buf)
+        print "\n%s::heap_on_node:" % title 
+        pprint((self._hn_header, self._hn_pagemap), indent=4)
+        print
+        for pos, lx in self._hn_pagemap["rgibAlloc"]:
+            dump_hex(bx[pos:pos+lx])
 
+    def _get_hid_pos_lx(self, px):
+        hidIndex = get_hid_index(px["value"])
+        assert hidIndex <= 2**11, hidIndex
+        # zero based, return pos (buffer position), lx (length)
+        return self._hn_pagemap["rgibAlloc"][hidIndex-1]
 
-def dump_heap_on_node(bx, title=None, full_dump=False):
-    if full_dump:
-        dump_hex(buf)
-    hn_header, hn_pagemap = parse_heap_on_node(bx)
-    print "\n%s::heap_on_node:" % title, hn_header, hn_pagemap, "\n"
-    for pos, lx in hn_pagemap["rgibAlloc"]:
-        dump_hex(bx[pos:pos+lx])
+    def _parse_bt_header(self, buf):
+        eng = UnpackDesc(buf)
+        self._bth_header = eng.unpack(BTH_HEADER)
+        assert eng.pos == len(buf)
 
 
 class PropertyValue:
@@ -378,48 +353,20 @@ class PropertyValue:
         return self._read(self._buf)
 
 
-class PropertyContext:
-    # FIXME реализира и част от общата функционалност на BTH
-    def __init__(self, nid, _debug=0):
-        self.nid = nid
-        self.buf = ndb.read_nid(nid)  # read message store description
-        self.hn_header, self.hn_pagemap = parse_heap_on_node(self.buf)
-        assert self.hn_header["bClientSig"][0] == "bTypePC"
-        self._debug = _debug
-        if self._debug > 0:
-            dump_heap_on_node(self.buf, title="PropertyContext[HND]")
+class PropertyContext(NodeContext):
+    def __init__(self, nid):
+        NodeContext.__init__(self, ndb, nid)
+        assert self._hn_header["bClientSig"][0] == "bTypePC"
         self._read_props_map()
 
     def _read_props_map(self):
-        hid = get_hid_index(self.hn_header["hidUserRoot"])
-        pos, lx = self.hn_pagemap["rgibAlloc"][hid-1]
-        self._bth_header = parser_bt_header(self.buf[pos:pos+lx])
-        print "self._bth_header:::", self._bth_header
-
         hid = get_hid_index(self._bth_header["hidRoot"])
-        pos, lx = self.hn_pagemap["rgibAlloc"][hid-1]
-        b1 = self.buf[pos:pos+lx]
-        if self._debug > 1:
-            dump_hex(b1)
-        PC_BTH = """\
-        propTag  WORD
-        propType WORD
-        value    byte[4]
-        """
-        eng = UnpackDesc(b1)
+        pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]
+        eng = UnpackDesc(self._buf[pos:pos+lx])
         for p in range(lx / 8):
-            eng.unpack2(PC_BTH)
-            self._props = [dict(eng.out[3*p:3*(p+1)])
-                           for p in range(len(eng.out)/3)]
-            self._props = dict([(x["propTag"], x)
-                                for x in self._props])
+            eng.unpack(PC_BTH_RECORD)
+        self._props = dict([(x["propTag"], x) for x in eng.out])
         enrich_prop_code(self._props.values())
-
-    def _get_hid_pos_lx(self, px):
-        hidIndex = get_hid_index(px["value"])
-        assert hidIndex <= 2**11, hidIndex
-        # zero based, return pos (buffer position), lx (length)
-        return self.hn_pagemap["rgibAlloc"][hidIndex-1]
 
     def get_buffer(self, ptag):
         px = self._props[ptag]
@@ -432,7 +379,7 @@ class PropertyContext:
             nid_type = get_hnid_type(hnid)
             if nid_type == "HID":
                 pos, lx = self._get_hid_pos_lx(px)
-                return self.buf[pos:pos+lx]
+                return self._buf[pos:pos+lx]
             else:
                 return ndb.read_nid_sub(self.nid, hnid)
 

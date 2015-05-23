@@ -152,7 +152,7 @@ def run_profile(fun, *argv, **kwargv):
     prof.disable()
     stat = Stats(prof).strip_dirs()
     stat = stat.sort_stats("tottime")
-    stat.print_stats()
+    stat.print_stats(20)
     return result
 
 

@@ -342,10 +342,82 @@ bid    BID # The BID of the data block associated
            # with the child subnode.
 bidSub BID # The BID of the child subnode of this child subnode.
 """
-
 BLOCK_TRAILER = UnpackDesc.struct_model(_BLOCK_TRAILER)
 BLOCK_SIGNATURE = UnpackDesc.struct_model(_BLOCK_SIGNATURE)
 SL_ENTRY = UnpackDesc.struct_model(_SL_ENTRY)
+
+# 2.3.1.2 HNHDR
+_HN_HDR = """\
+ibHnpm       WORD    # The byte offset to the HN page Map record
+                     # section 2.3.1.5), with respect to the beginning
+                     # of the HNHDR structure
+bSig         byte    # Block signature;
+                     # MUST be set to 0xEC to indicate a HN
+bClientSig   byte    # Client signature.
+                     # This value describes the higher-level structure that
+                     # is implemented on top of the HN. This value is
+                     # intended as a hint for a higher-level structure and
+                     # has no meaning for structures defined at the HN
+                     # level.  The following values are pre-defined for
+                     # bClientSig.  All other values not described in the
+                     # following table are reserved and MUST NOT be assigned
+                     # or used. See hn_header_client_sig.
+hidUserRoot  DWORD   # HID that points to the User Root record.
+rgbFillLevel byte[4] # Per-block Fill Level Map.
+                     # This array consists of eight 4-bit values that
+                     # indicate the fill level for each of the first 8 data
+                     # blocks (including this header block).
+"""
+# 2.3.1.5 HNPAGEMAP
+_HN_PAGE_MAP = """\
+cAlloc WORD # Allocation count
+cFree  WORD # Free count
+"""
+# 2.3.2.1 BTHHEADER
+_BTH_HEADER = """\
+bType byte       # MUST be bTypeBTH (0xB5)
+cbKey byte       # Size of the BTree Key value, in bytes.
+                 # This value MUST be set to 2, 4, 8, or 16
+cbEnt byte       # Size of the data value, in bytes.
+                 # This MUST be greater than zero (0) and less than or equal
+                 # to 32.
+bIdxLevels byte  # Index depth.
+hidRoot    DWORD # This is the HID that points to the BTH entries
+                 # for this BTHHEADER. The data consists of an array of BTH
+                 # Records.  This value is set to zero (0) if the BTH is
+                 # empty.
+"""
+HN_HDR = UnpackDesc.struct_model(_HN_HDR)
+HN_PAGE_MAP = UnpackDesc.struct_model(_HN_PAGE_MAP)
+BTH_HEADER = UnpackDesc.struct_model(_BTH_HEADER)
+print HN_HDR
+print HN_PAGE_MAP
+print BTH_HEADER
+
+
+# 2.3.3.3 PC BTH Record
+_PC_BTH_RECORD = """\
+propTag  WORD     # Property ID, as specified in [MS-OXCDATA] section 2.10.
+                  # This is the upper 16 bits of the property tag value.
+                  # This is a manifestation of the BTH record (section
+                  # 2.3.2.3) and constitutes the key of this record.
+propType WORD     # Property type.
+                  # This is the lower 16 bits of the property tag value,
+                  # which identifies the type of data that is associated
+                  # with the property. The complete list of property type
+                  # values and their data sizes are specified in
+                  # [MS-OXCDATA] section 2.12.1.
+value    byte[4]  # Depending on the data size of the property type
+                  # indicated by wPropType and a few other factors, this
+                  # field represents different values.
+                  # (Variable Size, Fixed Size, NID Type, value)
+                  # N | <=4 bytes | NA  | data value
+                  # N | > 4 bytes | HID | HID
+                  # Y | NA        | HID | HID <=3580 bytes
+                  # Y | NA        | NID | NID subnode, >3580 bytes
+"""
+PC_BTH_RECORD = UnpackDesc.struct_model(_PC_BTH_RECORD)
+print PC_BTH_RECORD
 
 
 def enrich_prop_code(props):
