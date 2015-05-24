@@ -174,6 +174,12 @@ class NDBLayer:
             # 2.2.2.8.3.3.1 SLBLOCKs
             pos += 4  # dwPadding (4 bytes)
             entries, pos = read_SL_entries(data, pos)
+            ext_entries = {}
+            for ex in entries.values():
+                if ex["bidSub"] != 0:
+                    enx = self._read_sub_btree(ex["bidSub"])
+                    ext_entries.update(enx)
+            entries.update(ext_entries)
             # pprint(("_read_SLBLOCKs", entries))
             # dump_hex(data)
         elif c_level == 1:
@@ -181,7 +187,6 @@ class NDBLayer:
             raise NotImplementedError
         else:
             raise KeyError(c_level)
-        # TODO recursion on entries::bidSub
         return entries
 
     def _read_block(self, bbt):
@@ -482,7 +487,7 @@ def test_ndb_info(ndb):
             print "  {0:<22s} {1:>7,d} {2:>12,d}".format(
                 nm, cnt, size)
         print
-    
+
     for nx in ndb._nbt:
         append_tab_entry(nid_type_cnt, nx)
         snid = nx.get("subEntries", None)
@@ -495,7 +500,7 @@ def test_ndb_info(ndb):
     print
 
 
-def test_PC(ndb, nid, hnid=None):
+def test_PC(ndb, nid, hnid=None, _max_binary_len=1024):
     print "="*60
     print nid, hnid, "\n"
     pc = PropertyContext(ndb, nid, hnid)
@@ -507,9 +512,12 @@ def test_PC(ndb, nid, hnid=None):
         ptag = ptag and ptag["name"] or p["propCode"]
         try:
             value = pv.get_value()
+            BinValue = PropertyValue.BinaryValue
+            if isinstance(value, BinValue):
+                value = BinValue(value.data[:_max_binary_len])
         except NotImplementedError:
             out = StringIO()
-            dump_hex(value_buf, out=out)
+            dump_hex(value_buf[:_max_binary_len], out=out)
             value = out.getvalue().strip()
         print "0x%04X %-10s %4d %6d %-40s" % (
             k, pt_code, pt_size, len(value_buf), ptag, ),
@@ -536,8 +544,10 @@ def test_nids(ndb, nid_type, fun=None, n=-1, s=0):
 def test_list_attachments(ndb):
     def att_info(ndb, nid, hnid):
         pc = PropertyContext(ndb, nid, hnid)
+        # TODO проверка дали има дадено property 0x3707 0x3704
+        # TODO PropertyValue да бъде implementation detail (private)
         p1 = PropertyValue(0x0003, pc.get_buffer(0x0E20)).get_value()[0]
-        p2 = PropertyValue(0x001F, pc.get_buffer(0x3704)).get_value() 
+        p2 = PropertyValue(0x001F, pc.get_buffer(0x3704)).get_value()
         print "{0:9d} {1:9d} {2:12,d} {3:<20}".format(nid, hnid, p1, p2)
     test_nids(ndb, "ATTACHMENT", fun=att_info)
 
@@ -551,10 +561,8 @@ if __name__ == '__main__':
     with NDBLayer(fnm) as ndb:
     # with run_profile(NDBLayer, fnm) as ndb:
         test_ndb_info(ndb)
-        # pprint(ndb._nbt)
-        # test_root_storage(ndb)
         # test_nids(ndb, "NORMAL_FOLDER", fun=test_PC, n=2, s=1)
         # test_nids(ndb, "NORMAL_MESSAGE", fun=test_PC, n=1)
         # test_nids(ndb, "RECIPIENT_TABLE", fun=test_TC, n=1, s=1)
-        test_list_attachments(ndb)
-        # test_PC(ndb, 2121252, 36933)
+        # test_list_attachments(ndb)
+        test_PC(ndb, 2121252, 36933)
