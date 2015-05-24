@@ -295,9 +295,6 @@ class NodeContext:
         self._buf = ndb.read_nid(nid, hnid)
         self._parse_HN_HDR(self._buf)
         # self._dump_HN_HDR(self._buf, title="NodeContext[HND]")
-        hid = get_hid_index(self._hn_header["hidUserRoot"])
-        pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]
-        self._parse_bt_header(self._buf[pos:pos+lx])
 
     def _parse_HN_HDR(self, buf):
         self._hn_header = UnpackDesc(buf, pos=0).unpack(HN_HDR)
@@ -326,15 +323,18 @@ class NodeContext:
             dump_hex(bx[pos:pos+lx])
 
     def _get_hid_pos_lx(self, px):
-        hidIndex = get_hid_index(px["value"])
+        hidIndex = get_hid_index(px)
         assert hidIndex <= 2**11, hidIndex
         # zero based, return pos (buffer position), lx (length)
         return self._hn_pagemap["rgibAlloc"][hidIndex-1]
 
-    def _parse_bt_header(self, buf):
-        eng = UnpackDesc(buf)
-        self._bth_header = eng.unpack(BTH_HEADER)
-        assert eng.pos == len(buf)
+    def _parse_bt_header(self, bth):
+        hid = get_hid_index(bth)
+        pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]
+        eng = UnpackDesc(self._buf[pos:pos+lx])
+        bth_header = eng.unpack(BTH_HEADER)
+        assert eng.pos == lx
+        return bth_header
 
 
 class PropertyValue:
@@ -398,9 +398,11 @@ class PropertyValue:
 
 
 class PropertyContext(NodeContext):
-    def __init__(self, ndb, nid):
-        NodeContext.__init__(self, ndb, nid)
+    def __init__(self, ndb, nid, hnid=None):
+        NodeContext.__init__(self, ndb, nid, hnid)
         assert self._hn_header["bClientSig"][0] == "bTypePC"
+        self._bth_header = self._parse_bt_header(
+            self._hn_header["hidUserRoot"])
         self._read_props_map()
 
     def _read_props_map(self):
@@ -422,7 +424,7 @@ class PropertyContext(NodeContext):
             hnid = ulong_from_tuple(px["value"])
             nid_type = get_hnid_type(hnid)
             if nid_type == "HID":
-                pos, lx = self._get_hid_pos_lx(px)
+                pos, lx = self._get_hid_pos_lx(px["value"])
                 return self._buf[pos:pos+lx]
             else:
                 return self._ndb.read_nid(self._nid, hnid)
@@ -444,21 +446,18 @@ class PropertyContext(NodeContext):
         return va
 
 
-class TableContext:
-    # FIXME TableContext реализира и част от общата функционалност на BTH
-    def __init__(self, nid):
-        self.nid = nid
-        self.buf = ndb.read_nid(nid)  # read message store description
-        self.hn_header, self.hn_pagemap = parse_heap_on_node(self.buf)
-        assert self.hn_header["bClientSig"][0] == "bTypeTC"
-        dump_heap_on_node(self.buf, title="TableContext[HND]")
+class TableContext(NodeContext):
+    def __init__(self, ndb, nid, hnid=None):
+        NodeContext.__init__(self, ndb, nid, hnid)
+        assert self._hn_header["bClientSig"][0] == "bTypeTC"
+        self._dump_HN_HDR(self._buf, title="TableContext[HND]")
         self._read_table_info()
         self._read_row_index()
 
     def _read_table_info(self):
-        hid = get_hid_index(self.hn_header["hidUserRoot"])
-        pos, lx = self.hn_pagemap["rgibAlloc"][hid-1]  # zero-based
-        b1 = self.buf[pos:pos+lx]
+        hid = get_hid_index(self._hn_header["hidUserRoot"])
+        pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]  # zero-based
+        b1 = self._buf[pos:pos+lx]
         TC_INFO = """\
         bType       byte # TC signature; MUST be set to bTypeTC (0x7C)
         cCols       byte # Column count.
@@ -503,23 +502,29 @@ class TableContext:
         for p in range(len(eng.out) / nmem):
             self._col_desc.append(dict(eng.out[nmem*p:nmem*(p+1)]))
         enrich_prop_code(self._col_desc)
+        pprint(("__self._col_desc:", self._col_desc), indent=4)
+        pprint(("__self._info:", self._info), indent=4)
 
     def _read_row_index(self):
-        def read_hid_data(hid_id):
-            hid = get_hid_index(hid_id)
-            pos, lx = self.hn_pagemap["rgibAlloc"][hid-1]
-            return self.buf[pos:pos+lx]
-        bth_row_index = read_hid_data(self._info["hidRowIndex"])
-        bth_row_index = parser_bt_header(bth_row_index)
-        print "TableContex:::_read_row_index::bth", bth_row_index
-        print "TableContex:::_read_row_index::TC_INFO", self._info
-        row_index_buf = read_hid_data(bth_row_index["hidRoot"])
+        #def read_hid_data(hid_id):
+        #    hid = get_hid_index(hid_id)
+        #    pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]
+        #    return self._buf[pos:pos+lx]
+        # bth_row_index = read_hid_data(self._info["hidRowIndex"])
+        bth_row_index = self._parse_bt_header(self._info["hidRowIndex"])
+        pprint(("TableContex:::_read_row_index::bth", bth_row_index), indent=4)
+        pprint(("TableContex:::_read_row_index::TC_INFO", self._info), indent=4)
+        pos, lx = self._get_hid_pos_lx(bth_row_index["hidRoot"])
+        row_index_buf = self._buf[pos:pos+lx]
         dump_hex(row_index_buf)
         # TODO TableContext read rowIndex and rowId
 
         data_hnid = self._info["hnidRows"]
         assert get_hnid_type(data_hnid) == "HID"  # FIXME NID or HID
-        rows_data = read_hid_data(data_hnid)
+        # НЕ rows_data = self._parse_bt_header(data_hnid)
+        # pprint(rows_data)
+        pos, lx = self._get_hid_pos_lx(data_hnid)
+        rows_data = self._buf[pos:pos+lx]
         dump_hex(rows_data)
         # TODO TableContext read row data
 
