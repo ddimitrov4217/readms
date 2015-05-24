@@ -275,6 +275,18 @@ class NDBLayer:
                              for x in entx.values()])
         return size
 
+    def list_nids(self, nid_type):
+        def nx_list(nodes, px=None):
+            for nx in nodes:
+                if nx["typeCode"] == nid_type:
+                    yield (px is None and nx["nid"] or px,
+                           px is not None and nx["nid"] or None,)
+                sbe = nx.get("subEntries", None)
+                if sbe is not None:
+                    for ex in nx_list(sbe.values(), nx["nid"]):
+                        yield ex
+        return nx_list(self._nbt)
+
 
 class NodeContext:
     def __init__(self, ndb, nid, hnid=None):
@@ -604,29 +616,17 @@ def test_root_storage(ndb):
             # pprint(tc._col_desc, width=110)
 
 
-def test_PC_list(ndb):
-    def test(pc_nid_type, _debug=0):
-        print "="*60, "\n", pc_nid_type, "\n"
-        for nx in ndb._nbt:
-            if nx["typeCode"] != pc_nid_type:
-                continue
-            if _debug > 0:
-                pc = PropertyContext(nx["nid"])
-                if _debug > 1:
-                    print "="*60, "\n", nx, "\n"
-                    pprint([("0x%04X %s" % (
-                        k, pc._props[k]["propCode"]), pc.read_prop(k))
-                            for k in pc._props])
-            else:
-                pprint(nx)
-    test("NORMAL_FOLDER")
-    test("ATTACHMENT")
-    test("NORMAL_MESSAGE")
-    test("ASSOC_MESSAGE")
+def test_NC(ndb, nid, hnid=None):
+    print "="*60
+    print nid, hnid, "\n"
+    nc = NodeContext(ndb, nid, hnid)
+    pprint((nc._hn_header, nc._hn_pagemap), indent=4)
 
 
-def test_PC(ndb, nid, _print_out=True):
-    pc = PropertyContext(ndb, nid)
+def test_PC(ndb, nid, hnid=None):
+    print "="*60
+    print nid, hnid, "\n"
+    pc = PropertyContext(ndb, nid, hnid)
     for k, p in pc._props.iteritems():
         value_buf = pc.get_buffer(p['propTag'])
         pv = PropertyValue(p["propType"], value_buf)
@@ -639,23 +639,41 @@ def test_PC(ndb, nid, _print_out=True):
             out = StringIO()
             dump_hex(value_buf, out=out)
             value = out.getvalue().strip()
-        if _print_out:
-            print "0x%04X %-10s %4d %6d %-40s" % (
-                k, pt_code, pt_size, len(value_buf), ptag, ),
-            if value is not None and len(unicode(value)) >= 30:
-                print "\n%s\n" % value
-            else:
-                print "[%s]" % value
+        print "0x%04X %-10s %4d %6d %-40s" % (
+            k, pt_code, pt_size, len(value_buf), ptag, ),
+        if value is not None and len(unicode(value)) >= 30:
+            print "\n%s\n" % value
+        else:
+            print "[%s]" % value
     print
 
 
-def test_PC_dump_type(pc_nid_type):
-    def filter(nx):
-        return nx["typeCode"] == pc_nid_type
+def test_TC(ndb, nid, hnid=None):
+    print "="*60
+    print nid, hnid
+    nc = TableContext(ndb, nid, hnid)
 
-    nx_list = [x for x in ndb._nbt if filter(x)]
-    for nx in nx_list[1:]:
-        test_PC(nx["nid"], _print_out=False)
+
+def test_nids(ndb, nid_type, fun=None, n=-1, s=0):
+    fun = fun or (lambda _, *nx: pprint(nx))
+    for nx in ndb.list_nids(nid_type):
+        if s == 0:
+            fun(ndb, *nx)
+        else:
+            s -= 1
+            continue
+        n -= 1
+        if n == 0:
+            break
+
+
+def test_list_attachments(ndb):
+    def att_info(ndb, nid, hnid):
+        pc = PropertyContext(ndb, nid, hnid)
+        p1 = PropertyValue(0x0003, pc.get_buffer(0x0E20)).get_value()[0]
+        p2 = PropertyValue(0x001F, pc.get_buffer(0x3704)).get_value() 
+        print "{0:9d} {1:9d} {2:12,d} {3:<20}".format(nid, hnid, p1, p2)
+    test_nids(ndb, "ATTACHMENT", fun=att_info)
 
 
 if __name__ == '__main__':
@@ -669,8 +687,8 @@ if __name__ == '__main__':
         test_ndb_info(ndb)
         # pprint(ndb._nbt)
         # test_root_storage(ndb)
-        # test_PC_list(ndb)
-        # test_PC(int(argv[2]))  # normal message
-        # test_PC(0x00008082)  # normal foder
-        # test_PC_dump_type("NORMAL_FOLDER")
-        # test_PC_dump_type("NORMAL_MESSAGE")
+        # test_nids(ndb, "NORMAL_FOLDER", fun=test_PC, n=2, s=1)
+        # test_nids(ndb, "NORMAL_MESSAGE", fun=test_PC, n=1)
+        # test_nids(ndb, "RECIPIENT_TABLE", fun=test_TC, n=1, s=1)
+        test_list_attachments(ndb)
+        # test_PC(ndb, 2121252, 36933)
