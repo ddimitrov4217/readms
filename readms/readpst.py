@@ -446,89 +446,6 @@ class PropertyContext(NodeContext):
         return va
 
 
-class TableContext(NodeContext):
-    def __init__(self, ndb, nid, hnid=None):
-        NodeContext.__init__(self, ndb, nid, hnid)
-        assert self._hn_header["bClientSig"][0] == "bTypeTC"
-        self._dump_HN_HDR(self._buf, title="TableContext[HND]")
-        self._read_table_info()
-        self._read_row_index()
-
-    def _read_table_info(self):
-        hid = get_hid_index(self._hn_header["hidUserRoot"])
-        pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]  # zero-based
-        b1 = self._buf[pos:pos+lx]
-        TC_INFO = """\
-        bType       byte # TC signature; MUST be set to bTypeTC (0x7C)
-        cCols       byte # Column count.
-        rgib        WORD[4] # This is an array of 4 16-bit values that
-            # specify the offsets of various groups of data in the actual
-            # row data. The application of this array is specified in
-            # section 2.3.4.4, which covers the data layout of
-            # the Row Matrix.
-        hidRowIndex DWORD # HID to the Row ID BTH
-        hnidRows    DWORD # HNID to the Row Matrix (actual table data).
-            # This value is set to zero (0) if the TC contains no rows.
-        hidIndex    DWORD # Deprecated.
-        """
-        eng = UnpackDesc(b1)
-        eng.unpack2(TC_INFO)
-        self._info = dict(eng.out)
-
-        TCOL_DESC = """\
-        propType WORD # This field specifies that 32-bit tag
-                      # that is associated with the column
-        propTag  WORD # Tag and type are split
-        ibData   WORD # Data Offset.
-            # This field indicates the offset from the beginning of the row
-            # data (in the Row Matrix) where the data for this column can be
-            # retrieved. Because each data row is laid out the same way in
-            # the Row Matrix, the Column data for each row can be found at
-            # the same offset.
-        cbData byte   # Data size.
-            # This field specifies the size of the data associated with this
-            # column (that is, "width" of the column), in bytes per row.
-            # However, in the case of variable-sized data, this value is set
-            # to the size of an HNID instead.
-        iBit   byte   # Cell Existence Bitmap Index.
-            # This value is the 0-based index into the CEB bit that
-            # corresponds to this Column.
-        """
-        eng = UnpackDesc(b1, pos=eng.pos)
-        for p in range(self._info["cCols"]):
-            eng.unpack2(TCOL_DESC)
-        self._col_desc = []
-        nmem = 5  # structure members
-        for p in range(len(eng.out) / nmem):
-            self._col_desc.append(dict(eng.out[nmem*p:nmem*(p+1)]))
-        enrich_prop_code(self._col_desc)
-        pprint(("__self._col_desc:", self._col_desc), indent=4)
-        pprint(("__self._info:", self._info), indent=4)
-
-    def _read_row_index(self):
-        #def read_hid_data(hid_id):
-        #    hid = get_hid_index(hid_id)
-        #    pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]
-        #    return self._buf[pos:pos+lx]
-        # bth_row_index = read_hid_data(self._info["hidRowIndex"])
-        bth_row_index = self._parse_bt_header(self._info["hidRowIndex"])
-        pprint(("TableContex:::_read_row_index::bth", bth_row_index), indent=4)
-        pprint(("TableContex:::_read_row_index::TC_INFO", self._info), indent=4)
-        pos, lx = self._get_hid_pos_lx(bth_row_index["hidRoot"])
-        row_index_buf = self._buf[pos:pos+lx]
-        dump_hex(row_index_buf)
-        # TODO TableContext read rowIndex and rowId
-
-        data_hnid = self._info["hnidRows"]
-        assert get_hnid_type(data_hnid) == "HID"  # FIXME NID or HID
-        # НЕ rows_data = self._parse_bt_header(data_hnid)
-        # pprint(rows_data)
-        pos, lx = self._get_hid_pos_lx(data_hnid)
-        rows_data = self._buf[pos:pos+lx]
-        dump_hex(rows_data)
-        # TODO TableContext read row data
-
-
 def test_ndb_info(ndb):
     print "="*60, "\nNDB Layer info\n"
     h1 = dict([(a, b) for a, b in ndb._header.iteritems()
@@ -578,56 +495,6 @@ def test_ndb_info(ndb):
     print
 
 
-def test_root_storage(ndb):
-    print "="*60, "\nRoot Storage Folders\n"
-
-    def pc_info(pc):
-        pprint([("0x%04X %s" % (
-            k, pc._props[k]["propCode"]), pc.read_prop(k))
-                for k in pc._props])
-
-    pc_root = PropertyContext(0x21)
-    pc_info(pc_root)
-
-    root_folder = [pc_root._read_entry_id(props_tags_codes[x])
-                   for x in ("IpmSuBTreeEntryId",
-                             "IpmWastebasketEntryId",
-                             "FinderEntryId")]
-    print "\n", "="*60
-    # pprint(fc1, width=110)
-    for fc in root_folder[:1]:
-        nid = fc["nid"]
-        nidType = (nid & 0x1F)
-        print "nidType:: 0x%08X %d %s" % (
-            nid, nidType, nid_types[nidType])
-        # dump_hex(ndb.read_nid(nid))
-        pc = PropertyContext(nid)
-        pc_info(pc)
-
-        tc_nid_types = []
-        for ntyp, (code, desc) in nid_types.iteritems():
-            if code in ("HIERARCHY_TABLE", "CONTENTS_TABLE",
-                        "ASSOC_CONTENTS_TABLE"):
-                tc_nid_types.append(ntyp)
-        print "tc_nid_types::", tc_nid_types
-        for tc_nid_type in tc_nid_types[:1]:
-            print "\n", "="*15
-            print "nid_type:::", nid_types[tc_nid_type]
-            tc_nid = nid & 0xFFFFFFE0 | tc_nid_type
-            # buf = ndb.read_nid(tc_nid)
-            # dump_heap_on_node(buf)
-            tc = TableContext(tc_nid)
-            print(tc._info)
-            # pprint(tc._col_desc, width=110)
-
-
-def test_NC(ndb, nid, hnid=None):
-    print "="*60
-    print nid, hnid, "\n"
-    nc = NodeContext(ndb, nid, hnid)
-    pprint((nc._hn_header, nc._hn_pagemap), indent=4)
-
-
 def test_PC(ndb, nid, hnid=None):
     print "="*60
     print nid, hnid, "\n"
@@ -651,12 +518,6 @@ def test_PC(ndb, nid, hnid=None):
         else:
             print "[%s]" % value
     print
-
-
-def test_TC(ndb, nid, hnid=None):
-    print "="*60
-    print nid, hnid
-    nc = TableContext(ndb, nid, hnid)
 
 
 def test_nids(ndb, nid_type, fun=None, n=-1, s=0):
