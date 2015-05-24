@@ -122,6 +122,14 @@ class NDBLayer:
             bid, bbt = bx["bref"]
             self._bbtx[bid] = bx
 
+    def _enrich_nid_type(self, ex):
+        ex["type"] = ex["nid"] & 0x1F
+        type_desc = nid_types.get(ex["type"], None)
+        if type_desc is not None:
+            ex["typeCode"] = type_desc[0]
+        else:
+            ex["typeCode"] = "0x%04X" % ex["type"]
+
     def _read_nbt(self, bref):
         nbt = read_ndb_page(self._fin, bref)
         if nbt["meta"]["entriesType"] == "BT":
@@ -129,17 +137,15 @@ class NDBLayer:
                 self._read_nbt(bt["bref"])
         else:
             for ex in nbt["entries"]:
-                ex["type"] = ex["nid"] & 0x1F
-                type_desc = nid_types.get(ex["type"], None)
-                if type_desc is not None:
-                    ex["typeCode"] = type_desc[0]
-                else:
-                    ex["typeCode"] = "0x%04X" % ex["type"]
+                self._enrich_nid_type(ex)
                 sbid = ex["bidSub"]
                 if sbid != 0:
                     # read 2.2.2.8.3.3 Subnode BTree
                     # print "_read_nbt::ex[nid]", ex["nid"]
-                    ex["subEntries"] = self._read_sub_btree(sbid)
+                    sub_entries = self._read_sub_btree(sbid)
+                    for sbe in sub_entries.values():
+                        self._enrich_nid_type(sbe)
+                    ex["subEntries"] = sub_entries
             self._nbt.extend(nbt["entries"])
         self._nbtx = {}
         for nx in self._nbt:
@@ -237,22 +243,44 @@ class NDBLayer:
             data = memoryview(out_data)
         return data
 
-    def read_nid(self, nid):
-        nx = self._nbtx[nid]
-        return self._read_data_block(nx["bidData"])
+    def _bid_size(self, bid):
+        if bid != 0:
+            bx = self._bbtx[bid]
+            return bx["cb"]
+        else:
+            return 0
 
-    def read_nid_sub(self, nid, hnid):
+    def _get_bid(self, nid, hnid=None):
         nx = self._nbtx[nid]
-        # print "read_nid_sub::", nid, hnid
-        bid = nx["subEntries"][hnid]["bid"]
-        return self._read_data_block(bid)
+        if hnid is not None:
+            bid = nx["subEntries"][hnid]["bid"]
+        else:
+            bid = nx["bidData"]
+        return bid
+
+    def read_nid(self, nid, hnid=None):
+        return self._read_data_block(self._get_bid(nid, hnid))
+
+    def nid_size(self, nid, hnid=None):
+        # NOTE само приблизително: не се отчитат XBLOCKS,
+        # вътрешните връзки от PC и TC, bidSubData; за да
+        # се отчетат ще трябва да се прочете в детайли
+        # целия файл, което в случая не е оправдано
+        bid = self._get_bid(nid, hnid)
+        size = self._bid_size(bid)
+        entx = self._nbtx[nid].get("subEntries", None)
+        if hnid is None:
+            if entx is not None:
+                size += sum([self.nid_size(nid, x["nid"])
+                             for x in entx.values()])
+        return size
 
 
 class NodeContext:
-    def __init__(self, ndb, nid):
+    def __init__(self, ndb, nid, hnid=None):
         self._ndb = ndb
         self._nid = nid
-        self._buf = ndb.read_nid(nid)  # read message store description
+        self._buf = ndb.read_nid(nid, hnid)
         self._parse_HN_HDR(self._buf)
         # self._dump_HN_HDR(self._buf, title="NodeContext[HND]")
         hid = get_hid_index(self._hn_header["hidUserRoot"])
@@ -385,7 +413,7 @@ class PropertyContext(NodeContext):
                 pos, lx = self._get_hid_pos_lx(px)
                 return self._buf[pos:pos+lx]
             else:
-                return self._ndb.read_nid_sub(self._nid, hnid)
+                return self._ndb.read_nid(self._nid, hnid)
 
     def _read_entry_id(self, ptag):
         b2 = self._read_binary(ptag)
@@ -405,7 +433,7 @@ class PropertyContext(NodeContext):
 
 
 class TableContext:
-    # FIXME реализира и част от общата функционалност на BTH
+    # FIXME TableContext реализира и част от общата функционалност на BTH
     def __init__(self, nid):
         self.nid = nid
         self.buf = ndb.read_nid(nid)  # read message store description
@@ -475,13 +503,13 @@ class TableContext:
         print "TableContex:::_read_row_index::TC_INFO", self._info
         row_index_buf = read_hid_data(bth_row_index["hidRoot"])
         dump_hex(row_index_buf)
-        # TODO read rowIndex and rowId
+        # TODO TableContext read rowIndex and rowId
 
         data_hnid = self._info["hnidRows"]
         assert get_hnid_type(data_hnid) == "HID"  # FIXME NID or HID
         rows_data = read_hid_data(data_hnid)
         dump_hex(rows_data)
-        # TODO read row data
+        # TODO TableContext read row data
 
 
 def test_ndb_info(ndb):
@@ -494,16 +522,41 @@ def test_ndb_info(ndb):
     print "in {0:,d} blocks by {1:,d} nids".format(
         len(ndb._bbt), len(ndb._nbt))
     pprint(h1, indent=4)
+    print
     nid_type_cnt = {}
-    for nx in ndb._nbt:
+    sub_nid_type_cnt = {}
+
+    def append_tab_entry(tab, nx, px=None):
         nt = nx["typeCode"]
-        if nt not in nid_type_cnt:
-            nid_type_cnt[nt] = 0
-        nid_type_cnt[nt] += 1
-    kt = nid_type_cnt.keys()
-    kt.sort()
-    for nm in kt:
-        print "  %-22s %5d" % (nm, nid_type_cnt[nm])
+        if nt not in tab:
+            tab[nt] = [0, 0]
+        tab[nt][0] += 1
+        if px is not None:
+            nx1 = px["nid"]
+            nx2 = nx["nid"]
+        else:
+            nx1 = nx["nid"]
+            nx2 = None
+        tab[nt][1] += ndb.nid_size(nx1, nx2)
+
+    def print_tab(tab, title):
+        print title
+        kt = tab.keys()
+        kt.sort()
+        for nm in kt:
+            cnt, size = tab[nm]
+            print "  {0:<22s} {1:>7,d} {2:>12,d}".format(
+                nm, cnt, size)
+        print
+    
+    for nx in ndb._nbt:
+        append_tab_entry(nid_type_cnt, nx)
+        snid = nx.get("subEntries", None)
+        if snid is not None:
+            for snx in snid.values():
+                append_tab_entry(sub_nid_type_cnt, snx, nx)
+    print_tab(nid_type_cnt, "Top level")
+    print_tab(sub_nid_type_cnt, "Subnodes, o.w.")
     print "done in {0:,.3f} sec".format(ndb._done_time)
     print
 
