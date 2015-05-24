@@ -19,10 +19,7 @@ def command_line_parser():
                         help="Path to Outlook PST file")
     parser.add_argument(
         "--profile", action="store_true", default=False,
-        help="run with cProfile, implies [--no-out]")
-    parser.add_argument(
-        "--out", type=str, default=None,
-        help="Output file instead of stdout")
+        help="run with cProfile with no output")
     # list contents
     parser.add_argument(
         "--list", action="store_true", default=False,
@@ -38,19 +35,27 @@ def command_line_parser():
     parser.add_argument(
         "--with-binary", action="store_true", default=False,
         help="skip binary hex dumps")
-    parser.add_argument(  # TODO
+    parser.add_argument(
         "--save", action="store_true", default=False,
         help="save messages into external files")
     return parser
 
 
-def list_content(ndb, out, params):
+def list_content(ndb, params):
     folders_fmt = (("ContentCount", "%4d"),
                    ("Subfolders", "%-5s"),
                    ("DisplayNameW", "%-30s"),)
     message_fmt = (("MessageSize", "%8d"),
                    ("MessageDeliveryTime", "%20s"),
                    ("SubjectW", "%-30s"),)
+
+    if params.save:
+        bnm = path.basename(params.pstfile).split(".")[0]
+        dnm = path.dirname(params.pstfile)
+        out = codecs.open(path.join(dnm, "%s_list.txt" % bnm),
+                          "w+", "UTF-8")
+    else:
+        out = stdout
 
     class props:
         def __init__(self):
@@ -100,7 +105,7 @@ def list_content(ndb, out, params):
         list_pc("NORMAL_MESSAGE", message_fmt)
 
 
-def print_messages(ndb, out, params):
+def print_messages(ndb, params):
     if params.nids is None:
         return
     for nid in params.nids:
@@ -113,6 +118,8 @@ def print_messages(ndb, out, params):
             if not path.exists(odir):
                 if params.with_binary:
                     mkdir(odir)
+        else:
+            out = stdout
 
         if not params.profile:
             print >>out, "="*60
@@ -129,9 +136,9 @@ def print_messages(ndb, out, params):
                 value = pv.get_value()
             except NotImplementedError:
                 if params.with_binary:
-                    out = StringIO()
-                    dump_hex(value_buf, out=out)
-                    value = out.getvalue().strip()
+                    outx = StringIO()
+                    dump_hex(value_buf, out=outx)
+                    value = outx.getvalue().strip()
             if not params.profile:
                 print >>out, "0x%04X %-10s %4d %6d %-40s" % (
                     k, pt_code, pt_size, len(value_buf), ptag, ),
@@ -156,39 +163,16 @@ def print_messages(ndb, out, params):
         if params.save:
             out.close()
 
+
 def command_line(inp_args=None):
     inp_args = inp_args or argv[1:]
     parser = command_line_parser()
     args = parser.parse_args(inp_args)
 
-    class run_context:
-        def __enter__(self):
-            print >>stderr, "reading pst NDB layer ...",
-            self.ndb = NDBLayer(args.pstfile)
-            print >> stderr, "done in %3.3f sec" % self.ndb._done_time
-            if args.out is not None:
-                self.out = codecs.open(args.out, "wb", "UTF-8")
-            else:
-                self.out = stdout
-            return self
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            try:
-                self.ndb.close()
-            except:
-                print_exc()
-            if self.out != stdout:
-                try:
-                    self.out.flush()
-                    self.out.close()
-                except:
-                    print_exc()
-            return False
-
     def run(args):
-        with run_context() as ctx:
-            list_content(ctx.ndb, ctx.out, args)
-            print_messages(ctx.ndb, ctx.out, args)
+        with NDBLayer(args.pstfile) as ndb:
+            list_content(ndb, args)
+            print_messages(ndb,  args)
 
     if args.profile:
         run_profile(run, args)

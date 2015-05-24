@@ -381,15 +381,15 @@ class PropertyValue:
 
     @classmethod
     def _read_Integer16(cls, pbuf):
-        return unpackb("<H", pbuf)
+        return unpackb("<H", pbuf)[0]
 
     @classmethod
     def _read_Integer32(cls, pbuf):
-        return unpackb("<L", pbuf)
+        return unpackb("<L", pbuf)[0]
 
     @classmethod
     def _read_Integer64(cls, pbuf):
-        return unpackb("<Q", pbuf)
+        return unpackb("<Q", pbuf)[0]
 
     @classmethod
     def _read_Time(cls, pbuf):
@@ -546,7 +546,7 @@ def test_list_attachments(ndb):
         pc = PropertyContext(ndb, nid, hnid)
         # TODO проверка дали има дадено property 0x3707 0x3704
         # TODO PropertyValue да бъде implementation detail (private)
-        p1 = PropertyValue(0x0003, pc.get_buffer(0x0E20)).get_value()[0]
+        p1 = PropertyValue(0x0003, pc.get_buffer(0x0E20)).get_value()
         p2 = PropertyValue(0x001F, pc.get_buffer(0x3704)).get_value()
         print "{0:9d} {1:9d} {2:12,d} {3:<20}".format(nid, hnid, p1, p2)
     test_nids(ndb, "ATTACHMENT", fun=att_info)
