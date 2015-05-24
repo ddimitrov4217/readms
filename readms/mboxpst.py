@@ -3,12 +3,12 @@
 
 import argparse
 import codecs
-from sys import argv, stderr, stdout
-from os import path, mkdir
-from traceback import print_exc
-from readpst import NDBLayer, PropertyContext, PropertyValue
-from metapst import all_props_types
-from readutl import run_profile
+from sys import argv, stdout
+from os import path, mkdir, rmdir
+from StringIO import StringIO
+from readms.readpst import NDBLayer, PropertyContext, PropertyValue
+from readms.metapst import all_props_types
+from readms.readutl import run_profile, dump_hex
 
 
 def command_line_parser():
@@ -34,7 +34,10 @@ def command_line_parser():
         help="print messages content")
     parser.add_argument(
         "--with-binary", action="store_true", default=False,
-        help="skip binary hex dumps")
+        help="process binaries")
+    parser.add_argument(
+        "--binary-limit", type=int, metavar="limit", default=1024,
+        help="skip above that limit or save into external file")
     parser.add_argument(
         "--save", action="store_true", default=False,
         help="save messages into external files")
@@ -48,6 +51,9 @@ def list_content(ndb, params):
     message_fmt = (("MessageSize", "%8d"),
                    ("MessageDeliveryTime", "%20s"),
                    ("SubjectW", "%-30s"),)
+
+    if not (params.list or params.list_messages):
+        return
 
     if params.save:
         bnm = path.basename(params.pstfile).split(".")[0]
@@ -64,7 +70,7 @@ def list_content(ndb, params):
         def setup(self, pc):
             self.empty = False
             self.props = {}
-            for tag, desc in pc._props.iteritems():
+            for _, desc in pc._props.iteritems():
                 # print desc
                 self.props[desc["propCode"]] = desc
 
@@ -145,12 +151,19 @@ def print_messages(ndb, params):
                 if pt_code == "Binary":
                     if params.with_binary:
                         if params.save:
-                            if not ptag.startswith("0x"):
+                            if (not ptag.startswith("0x") and
+                                    len(value.data) > params.binary_limit):
                                 onm = path.join(odir, "%s.out" % (ptag,))
                                 with open(onm, "wb+") as fout:
                                     fout.write(value.data)
-                            print >>out
-                            continue
+                                print >>out
+                                continue
+                            else:
+                                value = PropertyValue.BinaryValue(
+                                    value.data[:params.binary_limit])
+                        else:
+                            value = PropertyValue.BinaryValue(
+                                value.data[:params.binary_limit])
                     else:
                         print >>out
                         continue
@@ -162,6 +175,10 @@ def print_messages(ndb, params):
             print >>out
         if params.save:
             out.close()
+            try:
+                rmdir(odir)
+            except OSError:
+                pass  # not empty
 
 
 def command_line(inp_args=None):
