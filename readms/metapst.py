@@ -419,8 +419,8 @@ PC_BTH_RECORD = UnpackDesc.struct_model(_PC_BTH_RECORD)
 def enrich_prop_code(props):
     for prop in props:
         tag = prop["propTag"]
-        tag_info = props_tags.get(tag, None)
-        tag_code = tag_info is not None and tag_info[0] or "0x%04X" % tag
+        tag_info = all_props_types.get(tag, None)
+        tag_code = tag_info is not None and tag_info["name"] or "0x%04X" % tag
         prop["propCode"] = tag_code
 
 

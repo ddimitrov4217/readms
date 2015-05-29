@@ -56,10 +56,10 @@ def command_line_parser():
 def list_content(ndb, params):
     folders_fmt = (("ContentCount", "%4d"),
                    ("Subfolders", "%-5s"),
-                   ("DisplayNameW", "%-30s"),)
-    message_fmt = (("MessageSize", "%8d"),
+                   ("DisplayName", "%-30s"),)
+    message_fmt = (("MessageSizeExtended", "%8d"),
                    ("MessageDeliveryTime", "%20s"),
-                   ("SubjectW", "%-30s"),)
+                   ("Subject", "%-30s"),)
 
     if not (params.list or
             params.list_messages or
@@ -74,28 +74,7 @@ def list_content(ndb, params):
     else:
         out = stdout
 
-    class props:
-        def __init__(self):
-            self.empty = True
-
-        def setup(self, pc):
-            self.empty = False
-            self.props = {}
-            for _, desc in pc._props.iteritems():
-                # print desc
-                self.props[desc["propCode"]] = desc
-
-        def tag(self, name):
-            return self.props[name]
-
-        def value(self, pc, name):
-            ax = self.tag(name)
-            bu = pc.get_buffer(ax["propTag"])
-            pv = PropertyValue(ax["propType"], bu)
-            return pv.get_value()
-
     def list_pc(pc_type, fields):
-        att = props()
         if not params.profile:
             print >>out, "="*60
             print >>out, pc_type, "\n"
@@ -103,12 +82,10 @@ def list_content(ndb, params):
             if nx["typeCode"] != pc_type:
                 continue
             pc = PropertyContext(ndb, nx["nid"])
-            if att.empty:
-                att.setup(pc)
             if not params.profile:
                 print >>out, "%9d %7d" % (nx["nid"], nx["nidParent"]),
             for code, fmt in fields:
-                value = att.value(pc, code)
+                value = pc.get_value(code)
                 if not params.profile:
                     print >>out, ("%s" % fmt) % value,
             if not params.profile:

@@ -424,6 +424,8 @@ class PropertyContext(NodeContext):
             eng.unpack(PC_BTH_RECORD)
         self._props = dict([(x["propTag"], x) for x in eng.out])
         enrich_prop_code(self._props.values())
+        self._propx = dict([(v["propCode"], k)
+                           for k, v in self._props.iteritems()])
 
     def get_buffer(self, ptag):
         px = self._props[ptag]
@@ -455,6 +457,18 @@ class PropertyContext(NodeContext):
         va = dict(eng.out)
         assert va["rgbFlags"] == (0, 0, 0, 0)
         return va
+
+    def get_value(self, prop_name):
+        ptag = self._propx[prop_name]
+        pt = self._props[ptag]["propType"]
+        pv = PropertyValue(pt, self.get_buffer(ptag))
+        return pv.get_value()
+
+    def alt_name(self, *args):
+        for x in args:
+            if x in self._propx:
+                return x
+        return None
 
 
 def test_ndb_info(ndb):
@@ -506,7 +520,7 @@ def test_ndb_info(ndb):
     print
 
 
-def test_PC(ndb, nid, hnid=None, _max_binary_len=1024):
+def test_PC(ndb, nid, hnid=None, _max_binary_len=512):
     print "="*60
     print nid, hnid, "\n"
     pc = PropertyContext(ndb, nid, hnid)
@@ -550,10 +564,8 @@ def test_nids(ndb, nid_type, fun=None, n=-1, s=0):
 def test_list_attachments(ndb):
     def att_info(ndb, nid, hnid):
         pc = PropertyContext(ndb, nid, hnid)
-        # TODO проверка дали има дадено property 0x3707 0x3704
-        # TODO PropertyValue да бъде implementation detail (private)
-        p1 = PropertyValue(0x0003, pc.get_buffer(0x0E20)).get_value()
-        p2 = PropertyValue(0x001F, pc.get_buffer(0x3704)).get_value()
+        p1 = pc.get_value("AttachSize")
+        p2 = pc.get_value("AttachFilename")
         print "{0:9d} {1:9d} {2:12,d} {3:<20}".format(nid, hnid, p1, p2)
     test_nids(ndb, "ATTACHMENT", fun=att_info)
 
@@ -565,7 +577,6 @@ if __name__ == '__main__':
     fnm = len(argv) > 1 and argv[1] or u"test"
     fnm = path.join("pstdata", "%s.pst" % fnm)
     with NDBLayer(fnm) as ndb:
-    # with run_profile(NDBLayer, fnm) as ndb:
         test_ndb_info(ndb)
         # test_nids(ndb, "NORMAL_FOLDER", fun=test_PC, n=2, s=1)
         # test_nids(ndb, "NORMAL_MESSAGE", fun=test_PC, n=1)
