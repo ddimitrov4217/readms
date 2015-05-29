@@ -105,8 +105,9 @@ def list_content(ndb, params):
             pc = PropertyContext(ndb, nid, hnid)
             p1 = pc.get_value("AttachSize")
             p2 = pc.get_value(pc.alt_name("DisplayName", "AttachFilename"))
-            print >>out, "{0:9d} {1:7d} {2:12,d} {3:<20}".format(
-                nid, hnid, p1, p2)
+            if not params.profile:
+                print >>out, "{0:9d} {1:7d} {2:12,d} {3:<20}".format(
+                    nid, hnid, p1, p2)
 
 
 def print_messages(ndb, params):
@@ -178,11 +179,13 @@ def print_messages(ndb, params):
                 att_name = pa.alt_name("AttachLongFilename", "DisplayName",
                                        "AttachFilename")
                 att_name = pa.get_value(att_name)
-                print >>out, "{0:10,d} {1:<60s}".format(
-                    pa.get_value("AttachSize"), att_name)
+                if not params.profile:
+                    print >>out, "{0:10,d} {1:<60s}".format(
+                        pa.get_value("AttachSize"), att_name)
                 att = pa.get_value("AttachDataObject")
-                with open(path.join(odir, att_name), "wb+") as fout:
-                    fout.write(att.data)
+                if not params.profile:
+                    with open(path.join(odir, att_name), "wb+") as fout:
+                        fout.write(att.data)
 
         if params.save:
             out.close()

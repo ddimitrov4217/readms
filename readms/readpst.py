@@ -1,21 +1,19 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-import gzip
 import time
-from codecs import decode, encode
+from codecs import decode
 from StringIO import StringIO
 from datetime import datetime, timedelta
 from struct import unpack_from as unpackb
-from readutl import (
-    dump_hex, decode_permute, ulong_from_tuple, UnpackDesc,
-    run_profile)
-from metapst import (
+from readms.readutl import (
+    dump_hex, decode_permute, ulong_from_tuple, UnpackDesc)
+from readms.metapst import (
     page_types, nid_types, prop_types, all_props_types,
     hn_header_client_sig,
-    enrich_prop_code, props_tags_codes,
+    enrich_prop_code,
     get_hid_index, get_hnid_type)
-from metapst import (
+from readms.metapst import (
     HEADER_1, HEADER_2,
     PAGE_TRAILER, BT_PAGE, BT_ENTRY, BBT_ENTRY, NBT_ENTRY,
     BLOCK_TRAILER, BLOCK_SIGNATURE, SL_ENTRY,
@@ -24,7 +22,7 @@ from metapst import (
 
 
 def read_ndb_page(fin, bref):
-    bid, ib = bref
+    _, ib = bref
     fin.seek(ib)
     buf = memoryview(fin.read(512))
     # dump_hex(buf)
@@ -318,7 +316,7 @@ class NodeContext:
 
         pos = eng.pos
         allocs = []
-        for p in range(0, self._hn_pagemap["cAlloc"]+1):
+        for _ in range(0, self._hn_pagemap["cAlloc"]+1):
             allocs.append(unpackb("<H", buf, pos)[0])
             pos += 2
         # calculate start-offset, size
@@ -420,16 +418,16 @@ class PropertyContext(NodeContext):
         hid = get_hid_index(self._bth_header["hidRoot"])
         pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]
         eng = UnpackDesc(self._buf[pos:pos+lx])
-        for p in range(lx / 8):
+        for _ in range(lx / 8):
             eng.unpack(PC_BTH_RECORD)
         self._props = dict([(x["propTag"], x) for x in eng.out])
         enrich_prop_code(self._props.values())
         self._propx = dict([(v["propCode"], k)
-                           for k, v in self._props.iteritems()])
+                            for k, v in self._props.iteritems()])
 
     def get_buffer(self, ptag):
         px = self._props[ptag]
-        pt_name, pt_size, _ = prop_types[px["propType"]]
+        _, pt_size, _ = prop_types[px["propType"]]
         # 2.3.3.3 PC BTH Record (dwValueHnid, p.60)
         if pt_size > 0 and pt_size <= 4:
             return memoryview(bytearray(px["value"]))
@@ -441,22 +439,6 @@ class PropertyContext(NodeContext):
                 return self._buf[pos:pos+lx]
             else:
                 return self._ndb.read_nid(self._nid, hnid)
-
-    def _read_entry_id(self, ptag):
-        b2 = self._read_binary(ptag)
-        # dump_hex(b2)
-        STORE_ENTRY_ID = """\
-        rgbFlags byte[4]  # Flags
-                          # each of these bytes MUST be initialized to zero.
-        uid      byte[16] # PidTagRecordKey
-        nid      DWORD    # This is the corresponding NID of the underlying
-                          # node that represents the object.
-        """
-        eng = UnpackDesc(b2)
-        eng.unpack2(STORE_ENTRY_ID)
-        va = dict(eng.out)
-        assert va["rgbFlags"] == (0, 0, 0, 0)
-        return va
 
     def get_value(self, prop_name):
         ptag = self._propx[prop_name]
