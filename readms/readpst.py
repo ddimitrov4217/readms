@@ -280,7 +280,7 @@ class NDBLayer:
                              for x in entx.values()])
         return size
 
-    def list_nids(self, nid_type):
+    def list_nids(self, nid_type, start_with=None):
         def nx_list(nodes, px=None):
             for nx in nodes:
                 if nx["typeCode"] == nid_type:
@@ -290,7 +290,13 @@ class NDBLayer:
                 if sbe is not None:
                     for ex in nx_list(sbe.values(), nx["nid"]):
                         yield ex
-        return nx_list(self._nbt)
+        if start_with is not None:
+            zx = self._nbtx[start_with].get("subEntries", None)
+            if zx is not None:
+                return nx_list(zx.values(), start_with)
+        else:
+            startx = self._nbt
+        return nx_list(startx)
 
 
 class NodeContext:
