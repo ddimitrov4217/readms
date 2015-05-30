@@ -8,7 +8,7 @@ from readms.readutl import ulong_from_tuple, UnpackDesc
 # =========================================================================
 # 2.2.2.1 NID (Node ID)
 # nidType (5 bits): Identifies the type of the node represented by the NID.
-# The # following table specifies a list of values for nidType. However,
+# The following table specifies a list of values for nidType. However,
 # it is worth noting that nidType has no meaning to the structures defined
 # in the NDB Layer.
 _nid_types = """\
@@ -39,6 +39,27 @@ for _line in _nid_types.splitlines():
     _desc = _desc.split(" ", 1)
     nid_types[int(_numh, 16)] = tuple(_desc)
 del _line, _numh, _desc, _nid_types
+
+# 2.4.1 Special Internal NIDs
+_nid_internal_types = """\
+0x021 MESSAGE_STORE Message store node (section 2.4.3)
+0x061 NAME_TO_ID_MAP Named Properties Map (section 2.4.7)
+0x0A1 NORMAL_FOLDER_TEMPLATE Template node for an empty Folder
+0x0C1 SEARCH_FOLDER_TEMPLATE Template node for an empty search Folder
+0x122 ROOT_FOLDER Root Mailbox Folder object of PST
+0x1E1 SEARCH_MANAGEMENT_QUEUE Queue of Pending Search-related updates
+0x201 SEARCH_ACTIVITY_LIST Folder object NIDs with active Search activity
+0x261 SEARCH_DOMAIN_OBJECT List of all Folder referenced by Search Criteria
+0x281 SEARCH_GATHERER_QUEUE Search Gatherer Queue
+0x2A1 SEARCH_GATHERER_DESCR Search Gatherer Descriptor
+0x321 SEARCH_GATHERER_FOLDER_QUEUE Search Gatherer Folder Queue
+"""
+nid_internal_types = {}
+for _line in _nid_internal_types.splitlines():
+    _numh, _desc = _line.split(" ", 1)
+    _desc = _desc.split(" ", 1)
+    nid_internal_types[int(_numh, 16)] = tuple(_desc)
+del _line, _numh, _desc, _nid_internal_types
 
 # 2.2.2.7.1 PAGETRAILER, p.29
 _page_types = """\
@@ -443,7 +464,7 @@ def get_hnid_type(hnid):
     return hnid & 0x1F == 0 and "HID" or "NID"
 
 
-def parse_ms_oxprops(fnm=None, _silent=False):
+def parse_ms_oxprops(_silent=False):
     from pkgutil import get_data
 
     def read_events():
@@ -521,3 +542,4 @@ if __name__ == '__main__':
     from pprint import pprint
     # pt = parse_ms_oxprops()
     # pprint(pt.values()[:5])
+    pprint(nid_internal_types)

@@ -2,14 +2,17 @@
 # vim:ft=python:et:ts=4:sw=4:ai
 
 import time
+import uuid
+from pprint import pprint
 from codecs import decode
 from StringIO import StringIO
 from datetime import datetime, timedelta
-from struct import unpack_from as unpackb
+from struct import unpack_from as unpackb, calcsize
 from readms.readutl import (
     dump_hex, decode_permute, ulong_from_tuple, UnpackDesc)
 from readms.metapst import (
-    page_types, nid_types, prop_types, all_props_types,
+    page_types, nid_types, nid_internal_types,
+    prop_types, all_props_types,
     hn_header_client_sig,
     enrich_prop_code,
     get_hid_index, get_hnid_type)
@@ -71,6 +74,7 @@ class NDBLayer:
         # TODO create tree structutes for BBT and NBT
         # тъй като файлът е read-only, за сега,
         # hash структура също върши работа
+        self._prop_internal = None
         self._done_time = time.time() - start
 
     def __enter__(self):
@@ -120,9 +124,15 @@ class NDBLayer:
             bid, bbt = bx["bref"]
             self._bbtx[bid] = bx
 
-    def _enrich_nid_type(self, ex):
+    @staticmethod
+    def _enrich_nid_type(ex):
         ex["type"] = ex["nid"] & 0x1F
-        type_desc = nid_types.get(ex["type"], None)
+        if ex["type"] == 1:
+            ez = ex["nid"] & 0x3FF
+            type_desc = nid_internal_types.get(ez, None)
+        else:
+            ez = ex["nid"] & 0x1F
+            type_desc = nid_types.get(ez, None)
         if type_desc is not None:
             ex["typeCode"] = type_desc[0]
         else:
@@ -210,7 +220,8 @@ class NDBLayer:
                 data = decode_permute(data)
         return data
 
-    def _read_block_sign(self, buf):
+    @staticmethod
+    def _read_block_sign(buf):
         eng = UnpackDesc(buf)
         return eng.unpack(BLOCK_SIGNATURE), eng.pos
 
@@ -296,14 +307,19 @@ class NDBLayer:
             startx = self._nbt
         return nx_list(startx)
 
+    def get_prop_names_map(self):
+        if self._prop_internal is None:
+            self._prop_internal = PropertyNameMap(self)
+        return self._prop_internal
 
-class NodeContext:
+
+class NodeHeap:
     def __init__(self, ndb, nid, hnid=None):
         self._ndb = ndb
         self._nid = nid
         self._buf = ndb.read_nid(nid, hnid)
         self._parse_HN_HDR(self._buf)
-        # self._dump_HN_HDR(self._buf, title="NodeContext[HND]")
+        # self._dump_HN_HDR(self._buf, title="NodeHeap[HND]")
 
     def _parse_HN_HDR(self, buf):
         self._hn_header = UnpackDesc(buf, pos=0).unpack(HN_HDR)
@@ -320,7 +336,7 @@ class NodeContext:
             allocs.append(unpackb("<H", buf, pos)[0])
             pos += 2
         # calculate start-offset, size
-        allocs = map(lambda x, y: (y, x-y), allocs[1:], allocs[:-1])
+        allocs = [(y, x-y) for x, y in zip(allocs[1:], allocs[:-1])]
         self._hn_pagemap["rgibAlloc"] = allocs
 
     def _dump_HN_HDR(self, bx, title=None):
@@ -331,15 +347,15 @@ class NodeContext:
         for pos, lx in self._hn_pagemap["rgibAlloc"]:
             dump_hex(bx[pos:pos+lx])
 
-    def _get_hid_pos_lx(self, px):
-        hidIndex = get_hid_index(px)
+    def _get_hid_pos_lx(self, hid):
+        hidIndex = get_hid_index(hid)
         assert hidIndex <= 2**11, hidIndex
         # zero based, return pos (buffer position), lx (length)
         return self._hn_pagemap["rgibAlloc"][hidIndex-1]
 
-    def _parse_bt_header(self, bth):
-        hid = get_hid_index(bth)
-        pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]
+    def _parse_btree_header(self, hid):
+        hidIndex = get_hid_index(hid)
+        pos, lx = self._hn_pagemap["rgibAlloc"][hidIndex-1]
         eng = UnpackDesc(self._buf[pos:pos+lx])
         bth_header = eng.unpack(BTH_HEADER)
         assert eng.pos == lx
@@ -406,11 +422,11 @@ class PropertyValue:
         return self._read(self._buf)
 
 
-class PropertyContext(NodeContext):
+class PropertyContext(NodeHeap):
     def __init__(self, ndb, nid, hnid=None):
-        NodeContext.__init__(self, ndb, nid, hnid)
+        NodeHeap.__init__(self, ndb, nid, hnid)
         assert self._hn_header["bClientSig"][0] == "bTypePC"
-        self._bth_header = self._parse_bt_header(
+        self._bth_header = self._parse_btree_header(
             self._hn_header["hidUserRoot"])
         self._read_props_map()
 
@@ -422,6 +438,9 @@ class PropertyContext(NodeContext):
             eng.unpack(PC_BTH_RECORD)
         self._props = dict([(x["propTag"], x) for x in eng.out])
         enrich_prop_code(self._props.values())
+        if not isinstance(self, PropertyNameMap):
+            names_map = self._ndb.get_prop_names_map()
+            names_map.enrich_props(self._props.values())
         self._propx = dict([(v["propCode"], k)
                             for k, v in self._props.iteritems()])
 
@@ -451,6 +470,87 @@ class PropertyContext(NodeContext):
             if x in self._propx:
                 return x
         return None
+
+
+class PropertyNameMap(PropertyContext):
+    def __init__(self, ndb):
+        ntm = [k for k, v in nid_internal_types.iteritems()
+               if v[0] == "NAME_TO_ID_MAP"]
+        assert len(ntm) == 1
+        PropertyContext.__init__(self, ndb, ntm[0], hnid=None)
+        # 2.1.2 Properties (само валидните за контекста)
+        # 0x0001 PidTagNameidBucketCount
+        # 0x0002 PidTagNameidStreamGuid
+        # 0x0003 PidTagNameidStreamEntry
+        # 0x0004 PidTagNameidStreamString
+        self._guids = self._read_guid_stream()
+        names = self._read_name_stream()
+        self._props = self._read_string_stream(names)
+        self._props = dict([(tag, (name, guid))
+                            for tag, guid, name in self._props])
+
+    def _read_guid_stream(self):
+        data = self._read_binary_data(0x0002)
+        data_len = len(data)
+        guids = []
+        pos = 0
+        while pos < data_len:
+            # NOTE с параметъра bytes_le нещо не работи
+            fx1 = unpackb("<LHHBB6B", data[pos:])
+            fx6 = list(fx1[:5])
+            fx5 = zip(range(5, -1, -1), fx1[5:])
+            fx6.append(sum(256**x*y for x, y in fx5))
+            guid = uuid.UUID(fields=fx6)
+            guids.append(guid)
+            pos += 16
+        return guids
+
+    def _get_guid(self, guid):
+        guid_ix = (guid >> 1) - 3
+        if guid_ix >= 0:
+            return self._guids[guid_ix]
+        else:
+            return None
+
+    def _read_name_stream(self):
+        data = self._read_binary_data(0x0003)
+        # 2.4.7.1 NAMEID
+        entry_bfmt = "<LHH"
+        entry_size = calcsize(entry_bfmt)
+        data_len = len(data)
+        names = []
+        pos = 0
+        while pos < data_len:
+            prop_id, guid_ix, prop_ix = unpackb(entry_bfmt, data[pos:])
+            n_flag = guid_ix & 0x1 == 1
+            if n_flag:
+                names.append((prop_ix, prop_id, guid_ix))
+            pos += entry_size
+        return names
+
+    def _read_string_stream(self, names):
+        names_data = self._read_binary_data(0x0004)
+        allocs = [x[1] for x in names]
+        names_w = [decode(names_data[x+4:y], "UTF-16LE", "replace")
+                   for x, y in zip(allocs[:-1], allocs[1:])]
+        names_w = [x.encode('ascii', errors='ignore') for x in names_w]
+        names_out = [(idx+0x8000, self._get_guid(guid), desc)
+                     for (idx, _, guid), desc in zip(names, names_w)]
+        return names_out
+
+    def _read_binary_data(self, tag):
+        buf = self.get_buffer(tag)
+        val = PropertyValue(0x0102, buf)
+        return val.get_value().data
+
+    def enrich_props(self, props):
+        for prop in props:
+            tag = prop["propTag"]
+            if tag < 0x8000 or tag > 0xFFFF:
+                continue
+            fx = self._props.get(tag, None)
+            if fx is not None:
+                prop["propCode"] = fx[0]
 
 
 def test_ndb_info(ndb):
@@ -486,7 +586,7 @@ def test_ndb_info(ndb):
         kt.sort()
         for nm in kt:
             cnt, size = tab[nm]
-            print "  {0:<22s} {1:>7,d} {2:>12,d}".format(
+            print "  {0:<25s} {1:>7,d} {2:>12,d}".format(
                 nm, cnt, size)
         print
 
@@ -543,17 +643,7 @@ def test_nids(ndb, nid_type, fun=None, n=-1, s=0):
             break
 
 
-def test_list_attachments(ndb):
-    def att_info(ndb, nid, hnid):
-        pc = PropertyContext(ndb, nid, hnid)
-        p1 = pc.get_value("AttachSize")
-        p2 = pc.get_value("AttachFilename")
-        print "{0:9d} {1:9d} {2:12,d} {3:<20}".format(nid, hnid, p1, p2)
-    test_nids(ndb, "ATTACHMENT", fun=att_info)
-
-
 if __name__ == '__main__':
-    from pprint import pprint
     from os import path
     from sys import argv
     fnm = len(argv) > 1 and argv[1] or u"test"
@@ -562,6 +652,6 @@ if __name__ == '__main__':
         test_ndb_info(ndb)
         # test_nids(ndb, "NORMAL_FOLDER", fun=test_PC, n=2, s=1)
         # test_nids(ndb, "NORMAL_MESSAGE", fun=test_PC, n=1)
-        # test_nids(ndb, "RECIPIENT_TABLE", fun=test_TC, n=1, s=1)
-        # test_list_attachments(ndb)
-        test_PC(ndb, 2121252, 36933)
+        test_nids(ndb, "NAME_TO_ID_MAP", fun=test_PC)
+        pm = PropertyNameMap(ndb)
+        # test_PC(ndb, 2121252, 36933)

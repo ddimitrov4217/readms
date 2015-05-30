@@ -77,8 +77,8 @@ class UnpackDesc:
         self.pos = pos
         self.out = []
 
-    @classmethod
-    def struct_map(clazz, desc):
+    @staticmethod
+    def struct_map(desc):
         strmap = dict(byte="B", WORD="H", DWORD="L",
                       BID="Q", IB="Q", CB="Q", NID="Q", BREF="2Q")
         patt = re.compile(r"""^(?P<ctype>\w{1,})\s+
@@ -104,8 +104,8 @@ class UnpackDesc:
             sd.append((name, typz, bsz * cnt))
         return sd
 
-    @classmethod
-    def struct_model(clazz, desc):
+    @staticmethod
+    def struct_model(desc):
         sd = UnpackDesc.struct_map(desc)
         stf = "<%s" % "".join([stz for _, stz, _ in sd])
         return (stf, calcsize(stf),
@@ -157,4 +157,4 @@ def run_profile(fun, *argv, **kwargv):
 
 
 def ulong_from_tuple(value):
-    return sum(map(lambda x, y: 256**x*y, (0, 1, 2, 3), value))
+    return sum(256**x*y for x, y in zip((0, 1, 2, 3), value))

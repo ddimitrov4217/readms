@@ -121,7 +121,7 @@ def print_messages(ndb, params):
                               "w+", "UTF-8")
         else:
             out = stdout
-        if params.save and params.with_binary or params.with_attachments:
+        if params.save or params.with_attachments:
             odir = path.join(dnm, "%s_%d" % (bnm, nid))
             if not path.exists(odir):
                 mkdir(odir)
@@ -135,8 +135,7 @@ def print_messages(ndb, params):
             value_buf = pc.get_buffer(p['propTag'])
             pv = PropertyValue(p["propType"], value_buf)
             pt_code, pt_size, _, = pv.pt_desc
-            ptag = all_props_types.get(p["propTag"], None)
-            ptag = ptag and ptag["name"] or p["propCode"]
+            ptag = p['propCode']
             try:
                 value = pv.get_value()
             except NotImplementedError:
