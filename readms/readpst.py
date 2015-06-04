@@ -652,6 +652,6 @@ if __name__ == '__main__':
         test_ndb_info(ndb)
         # test_nids(ndb, "NORMAL_FOLDER", fun=test_PC, n=2, s=1)
         # test_nids(ndb, "NORMAL_MESSAGE", fun=test_PC, n=1)
-        test_nids(ndb, "NAME_TO_ID_MAP", fun=test_PC)
-        pm = PropertyNameMap(ndb)
+        # test_nids(ndb, "NAME_TO_ID_MAP", fun=test_PC)
+        # pm = PropertyNameMap(ndb)
         # test_PC(ndb, 2121252, 36933)

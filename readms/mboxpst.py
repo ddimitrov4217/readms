@@ -194,6 +194,27 @@ def print_messages(ndb, params):
                 pass  # not empty
 
 
+class PstBox:
+    def __init__(self, file_name):
+        self.file_name = file_name
+        self.ndb = NDBLayer(file_name)
+
+    def reader(self, *args):
+        parser = command_line_parser()
+        args = list(args)
+        args.insert(0, self.file_name)
+        args = parser.parse_args(args)
+        if args.list_all:
+            args.list = True
+            args.list_messages = True
+            args.list_attachments = True
+        list_content(self.ndb, args)
+        print_messages(self.ndb, args)
+
+    def close(self):
+        self.ndb.close()
+
+
 def command_line(inp_args=None):
     inp_args = inp_args or argv[1:]
     parser = command_line_parser()
@@ -206,7 +227,7 @@ def command_line(inp_args=None):
     def run(args):
         with NDBLayer(args.pstfile) as ndb:
             list_content(ndb, args)
-            print_messages(ndb,  args)
+            print_messages(ndb, args)
 
     if args.profile:
         run_profile(run, args)
