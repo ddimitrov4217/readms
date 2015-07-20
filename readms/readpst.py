@@ -412,6 +412,10 @@ class PropertyValue:
         return unpackb("<Q", pbuf)[0]
 
     @classmethod
+    def _read_Floating64(cls, pbuf):
+        return unpackb("<d", pbuf)[0]
+
+    @classmethod
     def _read_Time(cls, pbuf):
         stime = unpackb("<Q", pbuf)[0]/10000000  # seconds
         days, seconds = divmod(stime, 24*60*60)
