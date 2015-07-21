@@ -161,6 +161,7 @@ _prop_types = """\
 0x0002 Integer16 2 16-bit integer
 0x0003 Integer32 4 32-bit integer
 0x0005 Floating64 8 64-bit floating point number
+0x000D Object 0 The property value is a Component Object Model object
 0x0040 Time 8 64-bit integer representing the number
               of 100-nanosecond intervals since January 1, 1601
 0x0014 Integer64 8 64-bit integer

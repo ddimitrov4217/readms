@@ -396,6 +396,10 @@ class PropertyValue:
         return cls.BinaryValue(pbuf)
 
     @classmethod
+    def _read_Object(cls, pbuf):
+        return cls.BinaryValue(pbuf)
+
+    @classmethod
     def _read_Boolean(cls, pbuf):
         return unpackb("<L", pbuf)[0] == 1L
 
