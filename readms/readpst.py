@@ -3,6 +3,8 @@
 
 import time
 import uuid
+import os
+import pickle
 from pprint import pprint
 from codecs import decode
 from StringIO import StringIO
@@ -69,8 +71,10 @@ class NDBLayer:
         self._bbt = []
         self._nbt = []
         start = time.time()
-        self._read_bbt(self._header["brefBBT"])
-        self._read_nbt(self._header["brefNBT"])
+        if not self._load_index(file_name):
+            self._read_bbt(self._header["brefBBT"])
+            self._read_nbt(self._header["brefNBT"])
+            self._save_index(file_name)
         # TODO create tree structutes for BBT and NBT
         # тъй като файлът е read-only, за сега,
         # hash структура също върши работа
@@ -90,6 +94,34 @@ class NDBLayer:
 
     def close(self):
         self._fin.close()
+
+    def _index_name(self, fnm):
+        name, ext = os.path.splitext(fnm) 
+        return "%s.idx" % name
+
+    def _load_index(self, fnm):
+        indx = self._index_name(fnm)
+        if not os.path.exists(indx):
+            return False
+        with open(self._index_name(fnm), "rb") as fin:
+            index = pickle.load(fin)
+            # TODO проверка на валидността на cache по полета от header
+            # index["header"] = self._header
+            self._bbt = index["bbt"]
+            self._bbtx = index["bbtx"]
+            self._nbt = index["nbt"]
+            self._nbtx = index["nbtx"]
+        return True
+
+    def _save_index(self, fnm):
+        with open(self._index_name(fnm), "wb") as fout:
+            index = {}
+            index["header"] = self._header
+            index["bbt"] = self._bbt
+            index["bbtx"] = self._bbtx
+            index["nbt"] = self._nbt
+            index["nbtx"] = self._nbtx
+            pickle.dump(index, fout, pickle.HIGHEST_PROTOCOL)
 
     def _read_header(self):
         self._fin.seek(0)
