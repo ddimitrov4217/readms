@@ -7,7 +7,6 @@ from sys import argv, stdout
 from os import path, mkdir, rmdir
 from StringIO import StringIO
 from readms.readpst import NDBLayer, PropertyContext, PropertyValue
-from readms.metapst import all_props_types
 from readms.readutl import run_profile, dump_hex
 
 

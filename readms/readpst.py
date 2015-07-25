@@ -96,7 +96,7 @@ class NDBLayer:
         self._fin.close()
 
     def _index_name(self, fnm):
-        name, ext = os.path.splitext(fnm) 
+        name, ext = os.path.splitext(fnm)
         return "%s.idx" % name
 
     def _load_index(self, fnm):
@@ -598,7 +598,7 @@ def test_ndb_info(ndb):
     h1 = dict([(a, b) for a, b in ndb._header.iteritems()
                if a in ("ibFileEof", "brefNBT",
                         "brefBBT", "bCryptMethod")])
-    print "{0:,d} bytes".format( sum(x["cb"] for x in ndb._bbt)),
+    print "{0:,d} bytes".format(sum(x["cb"] for x in ndb._bbt)),
     print "in {0:,d} blocks by {1:,d} nids".format(
         len(ndb._bbt), len(ndb._nbt))
     pprint(h1, indent=4)
