@@ -505,6 +505,12 @@ class PropertyContext(NodeHeap):
         pv = PropertyValue(pt, self.get_buffer(ptag))
         return pv.get_value()
 
+    def get_value_safe(self, prop_name, default=None):
+        if prop_name in self._propx:
+            return self.get_value(prop_name)
+        else:
+            return default
+
     def alt_name(self, *args):
         for x in args:
             if x in self._propx:
