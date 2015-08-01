@@ -65,16 +65,18 @@ def read_ndb_page(fin, bref):
 
 
 class NDBLayer:
-    def __init__(self, file_name):
+    def __init__(self, file_name, index_dir=None):
         self._fin = open(file_name, "rb")
         self._read_header()
         self._bbt = []
         self._nbt = []
         start = time.time()
-        if not self._load_index(file_name):
+        self._file_name = file_name
+        self._index_dir = index_dir
+        if not self._load_index():
             self._read_bbt(self._header["brefBBT"])
             self._read_nbt(self._header["brefNBT"])
-            self._save_index(file_name)
+            self._save_index()
         # TODO create tree structutes for BBT and NBT
         # тъй като файлът е read-only, за сега,
         # hash структура също върши работа
@@ -95,15 +97,24 @@ class NDBLayer:
     def close(self):
         self._fin.close()
 
-    def _index_name(self, fnm):
-        name, ext = os.path.splitext(fnm)
-        return "%s.idx" % name
+    def _index_name(self):
+        bname = os.path.basename(self._file_name)
+        dname = os.path.dirname(self._file_name)
+        name, ext = os.path.splitext(bname)
+        iname = "%s.idx" % name
+        if self._index_dir is not None:
+            if not os.path.exists(self._index_dir):
+                os.makedirs(self._index_dir)
+            iname = os.path.join(self._index_dir, iname)
+        else:
+            iname = os.path.join(dname, iname)
+        return iname
 
-    def _load_index(self, fnm):
-        indx = self._index_name(fnm)
+    def _load_index(self):
+        indx = self._index_name()
         if not os.path.exists(indx):
             return False
-        with open(self._index_name(fnm), "rb") as fin:
+        with open(self._index_name(), "rb") as fin:
             index = pickle.load(fin)
             # TODO проверка на валидността на cache по полета от header
             # index["header"] = self._header
@@ -113,8 +124,8 @@ class NDBLayer:
             self._nbtx = index["nbtx"]
         return True
 
-    def _save_index(self, fnm):
-        with open(self._index_name(fnm), "wb") as fout:
+    def _save_index(self):
+        with open(self._index_name(), "wb") as fout:
             index = {}
             index["header"] = self._header
             index["bbt"] = self._bbt
