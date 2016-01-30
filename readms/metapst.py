@@ -438,6 +438,54 @@ value    byte[4]  # Depending on the data size of the property type
 """
 PC_BTH_RECORD = UnpackDesc.struct_model(_PC_BTH_RECORD)
 
+# https://msdn.microsoft.com/en-us/library/office/ff860730.aspx
+_CODE_PAGES_INTERNET_MAP = """\
+1250    windows-1250
+1251    windows-1251
+1252    Windows-1252
+1253    windows-1253
+1254    windows-1254
+1255    windows-1255
+1256    windows-1256
+1257    windows-1257
+1258    windows-1258
+20127   us-ascii
+20866   koi8-r
+21866   koi8-u
+28591   iso-8859-1
+28592   iso-8859-2
+28593   iso-8859-3
+28594   iso-8859-4
+28595   iso-8859-5
+28596   iso-8859-6
+28597   iso-8859-7
+28599   iso-8859-9
+28605   iso-8859-15
+38598   iso-8859-8-i
+50220   iso-2022-jp
+50221   csISO2022JP
+51932   euc-jp
+51949   euc-kr
+52936   hz-gb-2312
+65000   utf-7
+65001   utf-8
+874     windows-874
+932     iso-2022-jp
+936     gb2312
+949     ks_c_5601-1987
+950     big5
+"""
+_code_pages_internet_map = {}
+for _line in _CODE_PAGES_INTERNET_MAP.splitlines():
+    _numh, _, _desc = _line.split(" ", 2)
+    _numh = int(_numh)
+    _code_pages_internet_map[_numh] = _desc.strip()
+del _line, _numh, _desc, _CODE_PAGES_INTERNET_MAP
+
+
+def get_internet_code_page(ms_code_page):
+    return _code_pages_internet_map.get(ms_code_page, None)
+
 
 def enrich_prop_code(props):
     for prop in props:
@@ -544,4 +592,5 @@ if __name__ == '__main__':
     from pprint import pprint
     # pt = parse_ms_oxprops()
     # pprint(pt.values()[:5])
-    pprint(nid_internal_types)
+    # pprint(nid_internal_types)
+    pprint(_code_pages_internet_map)
