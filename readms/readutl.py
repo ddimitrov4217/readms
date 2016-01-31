@@ -163,82 +163,98 @@ def ulong_from_tuple(value):
 def uncommpress_rtf(body):
     # [MS-OXRTFCP] http://download.microsoft.com/download/5/D/D/
     # 5DD33FDF-91F5-496D-9884-0A0B0EE698BB/%5BMS-OXRTFCP%5D.pdf
+    # http://www.freeutils.net/source/jtnef/rtfcompressed.jsp
+    _local_debug = 0
     # header на RtfCompressed 16 bytes
-    # dump_hex(body[:16])
-    cb_size = unpackb("<L", body[0:4])[0]
+    if _local_debug:
+        dump_hex(body[:16])
     cb_rawsize = unpackb("<L", body[4:8])[0]
-    dw_magic = unpackb("4c", body[8:12])
-    dw_crc = unpackb("<L", body[12:16])[0]
-    print "RTFC: header:", cb_size, cb_rawsize, dw_magic, dw_crc, len(body)
-    assert len(body) == cb_size + 4, (len(body), cb_size)
+    if _local_debug > 0:
+        cb_size = unpackb("<L", body[0:4])[0]
+        dw_magic = unpackb("4c", body[8:12])
+        dw_crc = unpackb("<L", body[12:16])[0]
+        print "header:", cb_size, cb_rawsize, dw_magic, dw_crc, len(body)
+        assert len(body) == cb_size + 4, (len(body), cb_size)
 
-    # инициализация на речника
-    buf_dict = r"".join([r"{\rtf1\ansi\mac\deff0\deftab720{\fonttbl;}",
-                         r"{\f0\fnil<SP>\froman<SP>\fswiss<SP>\fmodern<SP>",
-                         r"\fscript<SP>\fdecor<SP>MS<SP>Sans<SP>",
-                         r"SerifSymbolArialTimes<SP>New<SP>RomanCourier{",
-                         r"\colortbl\red0\green0\blue0<CR><LF>\par<SP>",
-                         r"\pard\plain\f0\fs20\b\i\u\tab\tx"])
-    buf_dict = buf_dict.replace("<SP>", chr(0x20))
-    buf_dict = buf_dict.replace("<CR>", chr(0x0D))
-    buf_dict = buf_dict.replace("<LF>", chr(0x0A))
-    buf_dict = list(buf_dict)
+    # инициализация на речника/резултата
+    prefix_ = r"".join([r"{\rtf1\ansi\mac\deff0\deftab720{\fonttbl;}",
+                        r"{\f0\fnil<SP>\froman<SP>\fswiss<SP>\fmodern<SP>",
+                        r"\fscript<SP>\fdecor<SP>MS<SP>Sans<SP>",
+                        r"SerifSymbolArialTimes<SP>New<SP>RomanCourier{",
+                        r"\colortbl\red0\green0\blue0<CR><LF>\par<SP>",
+                        r"\pard\plain\f0\fs20\b\i\u\tab\tx"])
+    prefix_ = prefix_.replace("<SP>", chr(0x20))
+    prefix_ = prefix_.replace("<CR>", chr(0x0D))
+    prefix_ = prefix_.replace("<LF>", chr(0x0A))
+    prefix_ = list(prefix_)
+    wp = len(prefix_)
+    prefix_len = wp
+    out = (prefix_len + cb_rawsize) * ["?"]
+    out[:prefix_len] = prefix_
 
-    # инициализация на резултата
-    out = list()
+    bp, rx_ctrl, rx_run = 16, 0, 0
+    while True:
+        if rx_run % 8 == 0:
+            rx_ctrl = unpackb("<B", body[bp])[0]
+            bp += 1
+            if _local_debug > 1:
+                print format(rx_ctrl, "08b")
+        if rx_ctrl & 0x1 == 1:
+            # референция към речника
+            lx = unpackb(">H", body[bp:(bp+2)])[0]
+            lx_off = (lx >> 4) & 0xFFF
+            lx_len = (lx & 0xF) + 2
+            lx_off = wp & 0xFFFFF000 | lx_off
+            if lx_off == wp:
+                break
+            if lx_off >= wp:
+                lx_off -= 4096
 
-    bp = 16
-    finish = False
-    while bp < cb_size and not finish:
-        rx_ctrl = unpackb("<B", body[bp])[0]
-        rx_len = bin(rx_ctrl).count("1")
-        rx_len = 2 * rx_len + 9 - rx_len
-        # print "\n===", bp, rx_ctrl, rx_len
-        # dump_hex(body[(bp+1):(bp+rx_len)])
-        lp = bp + 1
-        for _ in range(8):
-            if rx_ctrl & 0x1 == 1:
-                lx = unpackb(">H", body[lp:(lp+2)])[0]
-                lx_off = (lx >> 4) & 0xFFF
-                lx_len = (lx & 0xF) + 2
-                if len(out) == cb_rawsize:
-                    finish = True
-                    break
-                ox = buf_dict[lx_off:(lx_off+lx_len)]
-                # print 1, lx_off, lx_len, len(out), "".join(ox)
-                out.extend(ox)
-                buf_dict.extend(ox)
-                if len(ox) != lx_len:
-                    # TODO копиране извън края на буфера
-                    # [MS-OXRTFCP] 3.1.2 Example 2: Reading a Token from the
-                    # Dictionary that Crosses WritePosition
-                    print "RTFC: 3.1.2 fixme:", lx_off, lx_len, len(buf_dict),
-                    print len(ox), ox, buf_dict[lx_off:(lx_off+lx_len)]
-                    buf_dict.extend(['0'])  # FIXME
-                    out.extend(['0'])
-                lp += 2
-            else:
-                ox = unpackb("c", body[lp:(lp+1)])[0]
-                # print 0, lp, ox
-                out.append(ox)
-                buf_dict.append(ox)
-                lp += 1
-            rx_ctrl >>= 1
-        bp += rx_len
-    return out
+            ox = out[lx_off:(lx_off+lx_len)]
+            if _local_debug > 1:
+                print "  1 %8d %2d %8d [ %s ]" % (
+                    lx_off, lx_len, wp-prefix_len, "".join(ox))
+            if len(ox) < lx_len:
+                print "RTFC: FIXME len(ox) < lx_len:", len(ox), lx_len
+            out[wp:(wp+lx_len)] = ox
+            bp += 2
+            wp += lx_len
+        else:
+            # директно копиране
+            ox = unpackb("c", body[bp:(bp+1)])[0]
+            if _local_debug > 1:
+                print "  0 %s %8d [ %c ]" % (11*" ", wp-prefix_len, ox)
+            out[wp] = ox
+            bp += 1
+            wp += 1
+        rx_run += 1
+        rx_ctrl >>= 1
+    return out[prefix_len:]
 
 
 def test_compressed_rtf(test_fnm):
-    from os import path
-    fnm_out = path.basename(test_fnm).rsplit(".", 1)
-    fnm_out = fnm_out[0]
-    fnm_out = path.join(path.dirname(test_fnm), "%s.rtf" % fnm_out)
-    with open(test_fnm, "rb") as fin:
-        body = memoryview(bytearray(fin.read()))
-        out = uncommpress_rtf(body)
-        print "RTFC: len(out):", len(out)
-        with open(fnm_out, "wb") as fout:
-            fout.write("".join(out))
+    import os
+
+    def test_file(fnm):
+        print "test_file:", fnm,
+        fnm_out = os.path.basename(fnm).rsplit(".", 1)
+        fnm_out = fnm_out[0]
+        fnm_out = os.path.join(os.path.dirname(fnm), "%s.rtf" % fnm_out)
+        with open(fnm, "rb") as fin:
+            body = memoryview(bytearray(fin.read()))
+            out = uncommpress_rtf(body)
+            print "len(out):", len(out)
+            with open(fnm_out, "wb") as fout:
+                fout.write("".join(out))
+
+    if os.path.isdir(test_fnm):
+        for fnx in os.listdir(test_fnm):
+            if not fnx.endswith(".rtc"):
+                continue
+            fnx = os.path.join(test_fnm, fnx)
+            test_file(fnx)
+    else:
+        test_file(test_fnm)
 
 
 if __name__ == '__main__':
