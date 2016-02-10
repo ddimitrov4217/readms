@@ -91,13 +91,12 @@ def _read_records_desc(data, lno):
                             [(](?P<hnum>[0-9a-fA-F]+?)h[)]""", re.X)
     h_model = ("Offset", "Field Name", "Size", "Contents")
     h_index, d_index = 0, 0
-    rec_desc, rec_desc_out = None, None
+    rec_desc, rec_desc_out, rec_status = None, None, 0
     lines = _joined_lines(lno+1, data, tag_)
 
     def safe_as_int(x):
         return [int(_) if _.isdigit() else -1 for _ in x]
 
-    # FIXME таблицата свършва след първия пълен ред след празен
     for line_ in lines:
         heading_ = rx_heading.match(line_)
         if heading_ is not None:
@@ -105,7 +104,7 @@ def _read_records_desc(data, lno):
                 rec_desc_out.extend(zip(
                     safe_as_int(rec_desc[0]), safe_as_int(rec_desc[2]),
                     rec_desc[1], rec_desc[3]))
-            h_index, d_index = 0, 0
+            h_index, d_index, rec_status = 0, 0, 0
             rec_desc = [], [], [], []
             rec_desc_out = []
             biff_rec_descr[heading_.group("code")] = (
@@ -116,19 +115,46 @@ def _read_records_desc(data, lno):
             if len(line_) == 0:
                 h_index, d_index = 0, 0
                 continue
-            if h_index == 4:
+            if h_index == 4 and rec_status < 2:
                 rec_desc[d_index % 4].append(line_)
                 d_index += 1
             else:
                 if line_ == h_model[h_index]:
                     h_index += 1
+                    if h_index == 4:
+                        rec_status = 1
                 else:
+                    if rec_status == 1:
+                        rec_status = 2
                     h_index = 0
     return lines.last_pos()
 
 
 def biff_rec_name(rtag):
     return biff_rec_names.get(rtag, ("UNKNOWN", "TAG:%04X" % rtag),)
+
+
+def test_rec_desc_plain():
+    from pprint import pprint
+    # pprint(biff_rec_names)
+    # pprint(biff_rec_descr)
+    pprint(biff_rec_descr["AUTOFILTER"])
+    pprint(biff_rec_descr["SELECTION"])
+
+
+def test_rec_desc():
+    from pprint import pprint
+    print "\nEmpty descriptions\n"
+    for numh, code, name, desc in biff_rec_descr.values():
+        if len(desc) == 0:
+            print "%4X %s: %s" % (numh, code, name)
+    print "\nNon ordered offset\n"
+    for numh, code, name, desc in biff_rec_descr.values():
+        offset = [off for off, _, _, _ in desc if off > 0]
+        if sorted(offset) != offset:
+            print "%4X %s: %s" % (numh, code, name)
+            pprint(biff_rec_descr[code], width=110)
+            print
 
 
 biff_rec_names = {}
@@ -138,7 +164,6 @@ _read_desc_resource()
 
 
 if __name__ == '__main__':
-    from pprint import pprint
-    # pprint(biff_rec_names)
-    # pprint(biff_rec_descr)
-    pprint(biff_rec_descr["AUTOFILTER"])
+    # test_rec_desc_plain()
+    test_rec_desc()
+
