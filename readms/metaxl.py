@@ -43,7 +43,7 @@ class _joined_lines():
 
     Последвователни редове се обединяват в един общ. За начало на ново
     обединение се счита напълно празен ред. Един или повече празни редове
-    се докладват само веднъж. Редовете за нова страница се игнорира.
+    се докладват само веднъж. Редовете за нова страница се игнорират.
     Редовете с тагове се докладват без обединение.
     """
 
@@ -112,21 +112,26 @@ def _read_records_desc(data, lno):
                 heading_.group("code"), heading_.group("name"),
                 rec_desc_out)
         else:
-            if len(line_) == 0:
+            if len(line_) == 0 and d_index % 4 == 0:
                 h_index, d_index = 0, 0
                 continue
             if h_index == 4 and rec_status < 2:
+                if d_index % 4 == 0:
+                    if not line_.isdigit():
+                        rec_status = 2
+                        h_index = 0
+                        continue
                 rec_desc[d_index % 4].append(line_)
                 d_index += 1
+                continue
+            if h_model[h_index] in line_ and rec_status < 1:
+                h_index += 1
+                if h_index == 4:
+                    rec_status = 1
             else:
-                if h_model[h_index] in line_ and rec_status < 1:
-                    h_index += 1
-                    if h_index == 4:
-                        rec_status = 1
-                else:
-                    if rec_status == 1:
-                        rec_status = 2
-                    h_index = 0
+                if rec_status == 1:
+                    rec_status = 2
+                h_index = 0
     return lines.last_pos()
 
 
@@ -140,6 +145,7 @@ def test_rec_desc_plain():
     # pprint(biff_rec_descr)
     pprint(biff_rec_descr["AUTOFILTER"])
     pprint(biff_rec_descr["SELECTION"])
+    pprint(biff_rec_descr["OLESIZE"])
 
 
 def test_rec_desc():
