@@ -97,13 +97,16 @@ def _read_records_desc(data, lno):
     def safe_as_int(x):
         return [int(_) if _.isdigit() else -1 for _ in x]
 
+    def desc_out_trans():
+        if rec_desc is not None:
+            rec_desc_out.extend(zip(
+                safe_as_int(rec_desc[0]), safe_as_int(rec_desc[2]),
+                rec_desc[1], rec_desc[3]))
+
     for line_ in lines:
         heading_ = rx_heading.match(line_)
         if heading_ is not None:
-            if rec_desc is not None:
-                rec_desc_out.extend(zip(
-                    safe_as_int(rec_desc[0]), safe_as_int(rec_desc[2]),
-                    rec_desc[1], rec_desc[3]))
+            desc_out_trans()
             h_index, d_index, rec_status = 0, 0, 0
             rec_desc = [], [], [], []
             rec_desc_out = []
@@ -132,6 +135,7 @@ def _read_records_desc(data, lno):
                 if rec_status == 1:
                     rec_status = 2
                 h_index = 0
+    desc_out_trans()
     return lines.last_pos()
 
 
