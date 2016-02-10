@@ -89,7 +89,7 @@ def _read_records_desc(data, lno):
         return lno
     rx_heading = re.compile(r"""(?P<code>[A-Z0-9]+?):\s+(?P<name>.+?)\s+
                             [(](?P<hnum>[0-9a-fA-F]+?)h[)]""", re.X)
-    h_model = ("Offset", "Field Name", "Size", "Contents")
+    h_model = ("Offset", "Name", "Size", "Contents")
     h_index, d_index = 0, 0
     rec_desc, rec_desc_out, rec_status = None, None, 0
     lines = _joined_lines(lno+1, data, tag_)
@@ -119,7 +119,7 @@ def _read_records_desc(data, lno):
                 rec_desc[d_index % 4].append(line_)
                 d_index += 1
             else:
-                if line_ == h_model[h_index]:
+                if h_model[h_index] in line_ and rec_status < 1:
                     h_index += 1
                     if h_index == 4:
                         rec_status = 1
