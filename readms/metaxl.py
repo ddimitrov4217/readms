@@ -143,10 +143,14 @@ def biff_rec_name(rtag):
     return biff_rec_names.get(rtag, ("UNKNOWN", "TAG:%04X" % rtag),)
 
 
+def test_rec_print_all():
+    from pprint import pprint
+    pprint(biff_rec_names)
+    pprint(biff_rec_descr)
+
+
 def test_rec_desc_plain():
     from pprint import pprint
-    # pprint(biff_rec_names)
-    # pprint(biff_rec_descr)
     pprint(biff_rec_descr["AUTOFILTER"])
     pprint(biff_rec_descr["SELECTION"])
     pprint(biff_rec_descr["OLESIZE"])
@@ -155,16 +159,22 @@ def test_rec_desc_plain():
 def test_rec_desc():
     from pprint import pprint
     print "\nEmpty descriptions\n"
+    rows = 0
     for numh, code, name, desc in biff_rec_descr.values():
         if len(desc) == 0:
             print "%4X %s: %s" % (numh, code, name)
+            rows += 1
+    print "\n %d row(s)" % rows
     print "\nNon ordered offset\n"
+    rows = 0
     for numh, code, name, desc in biff_rec_descr.values():
         offset = [off for off, _, _, _ in desc if off > 0]
         if sorted(offset) != offset:
             print "%4X %s: %s" % (numh, code, name)
             pprint(biff_rec_descr[code], width=110)
+            rows += 1
             print
+    print "\n %d row(s)" % rows
 
 
 biff_rec_names = {}
@@ -174,6 +184,6 @@ _read_desc_resource()
 
 
 if __name__ == '__main__':
-    # test_rec_desc_plain()
+    # test_rec_print_all()
+    test_rec_desc_plain()
     test_rec_desc()
-
