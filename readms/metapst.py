@@ -533,6 +533,9 @@ def parse_ms_oxprops(_silent=False):
                 if len(_line) == 0:
                     if in_cont:
                         in_cont = False
+                        # pylint: disable=used-before-assignment
+                        # логиката установява in_cont на True, за да покаже
+                        # че променливите att и desc са установени
                         yield "DESC", (att, desc, )
                         continue
                 if _line == "2 Structures":
@@ -543,9 +546,7 @@ def parse_ms_oxprops(_silent=False):
                 if not in_range:
                     continue
                 if _line.startswith("2.%d " % next_id):
-                    # if next_id + 1 > 10:
-                    #     break
-                    num, name = _line.split(" ", 1)
+                    _, name = _line.split(" ", 1)
                     yield "PROP", (name, )
                     next_id += 1
                 px = _line.find(":")
@@ -558,6 +559,7 @@ def parse_ms_oxprops(_silent=False):
             yield "END", "Successfuly loaded %s" % resource_fnm
 
     prop_types = []
+    result = {}
     for etag, info in read_events():
         if etag == "PROP":
             name, = info
@@ -573,7 +575,6 @@ def parse_ms_oxprops(_silent=False):
                 result.update(dx)
                 if not _silent:
                     print "%5d hashed by %s" % (len(dx), id_name)
-            result = {}
             if not _silent:
                 print info
                 print "%5d properties found" % len(prop_types)
