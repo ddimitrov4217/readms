@@ -114,6 +114,15 @@ class NDBLayer:
         indx = self._index_name()
         if not os.path.exists(indx):
             return False
+        else:
+            fn_mtime = os.stat(self._file_name).st_mtime
+            fn_mtime = datetime.fromtimestamp(fn_mtime)
+            ix_mtime = os.stat(indx).st_mtime
+            ix_mtime = datetime.fromtimestamp(ix_mtime)
+            # индекса е по-стар от pst файла
+            if fn_mtime > ix_mtime:
+                return False
+
         with open(self._index_name(), "rb") as fin:
             index = pickle.load(fin)
             # TODO проверка на валидността на cache по полета от header
