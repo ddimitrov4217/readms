@@ -478,6 +478,11 @@ class PropertyValue:
         delta = timedelta(days=days, seconds=seconds)
         return datetime(year=1601, month=1, day=1) + delta
 
+    @classmethod
+    def _read_PtypMultipleString(cls, pbuf):
+        # TODO вероятно има описание на начина на четене
+        raise NotImplementedError
+
     def get_value(self):
         return self._read(self._buf)
 

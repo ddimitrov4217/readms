@@ -165,6 +165,7 @@ _prop_types = """\
 0x0040 Time 8 64-bit integer representing the number
               of 100-nanosecond intervals since January 1, 1601
 0x0014 Integer64 8 64-bit integer
+0x101F PtypMultipleString 0 Multiple String
 """
 prop_types = {}
 for _line in _prop_types.splitlines():
