@@ -497,6 +497,17 @@ class PropertyContext(NodeHeap):
 
     def _read_props_map(self):
         hid = get_hid_index(self._bth_header["hidRoot"])
+        if hid > 0x1F:
+            # FIXME В този случай получава IndexError: list index out of range
+            # възможно е причината да е в get_hid_index
+            # dump за такъв случай има във файла testdata/pst_error_01.txt
+            # получава се ако има meeting за много хора; такъв случай има изолиран
+            # във файла 2019.3.pst
+            # това се отпечатва в този случай 96 2053 0x805 0x100a0
+            print '*'*70
+            print len(self._hn_pagemap["rgibAlloc"]), hid, hex(hid), hex(self._bth_header["hidRoot"])
+            self._dump_HN_HDR(self._buf, 'Too long')
+
         pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]
         eng = UnpackDesc(self._buf[pos:pos+lx])
         for _ in range(lx / 8):
