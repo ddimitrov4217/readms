@@ -519,7 +519,8 @@ class PropertyContext(NodeHeap):
         if not isinstance(self, PropertyNameMap):
             names_map = self._ndb.get_prop_names_map()
             names_map.enrich_props(self._props.values())
-        self._propx = dict([(v["propCode"], k) for k, v in self._props.items()])
+        # XXX Да се разследва и отстрани необходимостта от това str
+        self._propx = dict([(str(v["propCode"]), k) for k, v in self._props.items()])
 
     def get_buffer(self, ptag):
         px = self._props[ptag]
