@@ -1,20 +1,21 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
-# pylint: disable=old-style-class
 
 import os
 from datetime import datetime
 from time import time
 from string import whitespace
 from pkgutil import get_data
-from readms.readpst import NDBLayer, PropertyContext
+
 import hashlib
 import pickle
 import email
 import email.header as email_header
 import re
-
 import logging
+
+from readms.readpst import NDBLayer, PropertyContext
+
 log = logging.getLogger(__name__)
 
 
