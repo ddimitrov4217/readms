@@ -2,7 +2,7 @@
 # vim:ft=python:et:ts=4:sw=4:ai
 
 from io import BytesIO
-from readutl import ulong_from_tuple, UnpackDesc
+from readms.readutl import ulong_from_tuple, UnpackDesc
 
 # Описанията са от файла [MS-PST] — v20100627
 # Outlook Personal Folders File Format (.pst) Structure Specification
@@ -524,7 +524,7 @@ def parse_ms_oxprops(_silent=False):
         next_id = 1
         resource_fnm = "papers/MS-OXPROPS.txt"
         try:
-            data = get_data("metapst", resource_fnm).decode('cp1251')
+            data = get_data("readms.metapst", resource_fnm).decode('cp1251')
         except IOError:
             yield "END", "Missing %s" % resource_fnm
             return

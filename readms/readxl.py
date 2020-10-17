@@ -5,8 +5,8 @@ from io import StringIO
 import re
 from struct import unpack_from as unpackb
 from codecs import decode
-from readutl import dump_hex
-from metaxl import biff_rec_name
+from readms.readutl import dump_hex
+from readms.metaxl import biff_rec_name
 
 
 

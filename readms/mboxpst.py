@@ -6,8 +6,8 @@ import codecs
 from sys import argv, stdout
 from os import path, mkdir, rmdir
 from io import StringIO
-from readpst import NDBLayer, PropertyContext, PropertyValue
-from readutl import run_profile, dump_hex
+from readms.readpst import NDBLayer, PropertyContext, PropertyValue
+from readms.readutl import run_profile, dump_hex
 
 
 def command_line_parser():

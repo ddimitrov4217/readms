@@ -12,14 +12,14 @@ from io import StringIO
 
 from datetime import datetime, timedelta
 from struct import unpack_from as unpackb, calcsize
-from readutl import dump_hex, decode_permute, ulong_from_tuple, UnpackDesc
-from metapst import (
+from readms.readutl import dump_hex, decode_permute, ulong_from_tuple, UnpackDesc
+from readms.metapst import (
     page_types, nid_types, nid_internal_types,
     prop_types, all_props_types,
     hn_header_client_sig,
     enrich_prop_code,
     get_hid_index, get_hnid_type)
-from metapst import (
+from readms.metapst import (
     HEADER_1, HEADER_2,
     PAGE_TRAILER, BT_PAGE, BT_ENTRY, BBT_ENTRY, NBT_ENTRY,
     BLOCK_TRAILER, BLOCK_SIGNATURE, SL_ENTRY,
