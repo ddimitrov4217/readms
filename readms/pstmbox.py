@@ -514,7 +514,7 @@ class TagsList:
                 self._tags = pickle.load(fin)
 
     def get_tags(self):
-        tags = self._tags.keys()
+        tags = list(self._tags.keys())
         tags.sort()
         for tag in tags:
             yield (tag, self._tags[tag])
