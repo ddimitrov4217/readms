@@ -386,7 +386,6 @@ class MboxCacheEntry:
             index = self.get_search_index()
             self._search_match_nids = set()
             search_words = search_string.lower().split()
-            result = set()
 
             for search_word in search_words:
                 found_set = set()

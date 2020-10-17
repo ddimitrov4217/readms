@@ -101,7 +101,7 @@ class NDBLayer:
     def _index_name(self):
         bname = os.path.basename(self._file_name)
         dname = os.path.dirname(self._file_name)
-        name, ext = os.path.splitext(bname)
+        name, _ext = os.path.splitext(bname)
         iname = "%s.idx" % name
         if self._index_dir is not None:
             if not os.path.exists(self._index_dir):

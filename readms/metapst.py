@@ -38,7 +38,7 @@ for _line in _nid_types.splitlines():
     _numh, _desc = _line.split(" ", 1)
     _desc = _desc.split(" ", 1)
     nid_types[int(_numh, 16)] = tuple(_desc)
-del _line, _numh, _desc, _nid_types
+del _line, _numh, _desc, _nid_types  # pylint: disable=undefined-loop-variable
 
 # 2.4.1 Special Internal NIDs
 _nid_internal_types = """\
@@ -59,7 +59,7 @@ for _line in _nid_internal_types.splitlines():
     _numh, _desc = _line.split(" ", 1)
     _desc = _desc.split(" ", 1)
     nid_internal_types[int(_numh, 16)] = tuple(_desc)
-del _line, _numh, _desc, _nid_internal_types
+del _line, _numh, _desc, _nid_internal_types  # pylint: disable=undefined-loop-variable
 
 # 2.2.2.7.1 PAGETRAILER, p.29
 _page_types = """\
@@ -76,7 +76,7 @@ for _line in _page_types.splitlines():
     _numh, _desc = _line.split(" ", 1)
     _desc = _desc.split(" ", 1)
     page_types[int(_numh, 16)] = tuple(_desc)
-del _line, _numh, _desc, _page_types
+del _line, _numh, _desc, _page_types  # pylint: disable=undefined-loop-variable
 
 # Heap Node Client Signatures, see 2.3.1.2 HNHDR, bClientSig, p53
 _hn_header_client_sig = """\
@@ -95,7 +95,7 @@ for _line in _hn_header_client_sig.splitlines():
     _numh, _desc = _line.split(" ", 1)
     _desc = _desc.split(" ", 1)
     hn_header_client_sig[int(_numh, 16)] = tuple(_desc)
-del _line, _numh, _desc, _hn_header_client_sig
+del _line, _numh, _desc, _hn_header_client_sig  # pylint: disable=undefined-loop-variable
 
 # 2.4.3.1   Minimum Set of Required Properties (Root Storage Folder)
 # 2.4.4.1.1 Property Schema of a Folder object PC
@@ -147,7 +147,7 @@ for _line in _props_tags.splitlines():
     _numh, _desc = _line.split(" ", 1)
     _desc = _desc.split(" ", 1)
     props_tags[int(_numh, 16)] = tuple(_desc)
-del _line, _numh, _desc, _props_tags
+del _line, _numh, _desc, _props_tags  # pylint: disable=undefined-loop-variable
 
 props_tags_codes = {}
 for tag, (tcode, tdesc) in props_tags.items():
@@ -176,7 +176,7 @@ for _line in _prop_types.splitlines():
     else:
         _ptyp, _bytes, _desc = prop_types[_numh]
         prop_types[_numh] = _ptyp, _bytes, " ".join((_desc, _line.strip()))
-del _line, _numh, _ptyp, _bytes, _desc, _prop_types
+del _line, _numh, _ptyp, _bytes, _desc, _prop_types  # pylint: disable=undefined-loop-variable
 
 # 2.2.2.6 HEADER
 _HEADER_1 = """\
@@ -481,7 +481,7 @@ for _line in _CODE_PAGES_INTERNET_MAP.splitlines():
     _numh, _, _desc = _line.split(" ", 2)
     _numh = int(_numh)
     _code_pages_internet_map[_numh] = _desc.strip()
-del _line, _numh, _desc, _CODE_PAGES_INTERNET_MAP
+del _line, _numh, _desc, _CODE_PAGES_INTERNET_MAP  # pylint: disable=undefined-loop-variable
 
 
 def get_internet_code_page(ms_code_page):
