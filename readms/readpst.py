@@ -474,7 +474,7 @@ class PropertyValue:
 
     @classmethod
     def _read_Time(cls, pbuf):
-        stime = unpackb("<Q", pbuf)[0]/10000000  # seconds
+        stime = unpackb("<Q", pbuf)[0]//10000000  # seconds
         days, seconds = divmod(stime, 24*60*60)
         delta = timedelta(days=days, seconds=seconds)
         return datetime(year=1601, month=1, day=1) + delta
