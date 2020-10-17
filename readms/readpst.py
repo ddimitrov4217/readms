@@ -5,20 +5,21 @@ import time
 import uuid
 import os
 import pickle
+
 from pprint import pprint
 from codecs import decode
-from StringIO import StringIO
+from io import StringIO
+
 from datetime import datetime, timedelta
 from struct import unpack_from as unpackb, calcsize
-from readms.readutl import (
-    dump_hex, decode_permute, ulong_from_tuple, UnpackDesc)
-from readms.metapst import (
+from readutl import dump_hex, decode_permute, ulong_from_tuple, UnpackDesc
+from metapst import (
     page_types, nid_types, nid_internal_types,
     prop_types, all_props_types,
     hn_header_client_sig,
     enrich_prop_code,
     get_hid_index, get_hnid_type)
-from readms.metapst import (
+from metapst import (
     HEADER_1, HEADER_2,
     PAGE_TRAILER, BT_PAGE, BT_ENTRY, BBT_ENTRY, NBT_ENTRY,
     BLOCK_TRAILER, BLOCK_SIGNATURE, SL_ENTRY,
@@ -254,7 +255,7 @@ class NDBLayer:
         # print "_read_block::bbt", bbt
         # block_size is near greater multiple by 64
         # 16 is the trailer block size
-        block_size = (((bbt["cb"] + 16) - 1) / 64 + 1) * 64
+        block_size = (((bbt["cb"] + 16) - 1) // 64 + 1) * 64
         assert block_size <= 8192  # 8176 + block trailer(16)
         self._fin.seek(ib)
         buf = memoryview(self._fin.read(block_size))
@@ -393,9 +394,9 @@ class NodeHeap:
 
     def _dump_HN_HDR(self, bx, title=None):
         # dump_hex(buf)
-        print "\n%s::heap_on_node:" % title
+        print("\n%s::heap_on_node:" % title)
         pprint((self._hn_header, self._hn_pagemap), indent=4)
-        print
+        print()
         for pos, lx in self._hn_pagemap["rgibAlloc"]:
             dump_hex(bx[pos:pos+lx])
 
@@ -453,7 +454,7 @@ class PropertyValue:
 
     @classmethod
     def _read_Boolean(cls, pbuf):
-        return unpackb("<L", pbuf)[0] == 1L
+        return unpackb("<L", pbuf)[0] == 1
 
     @classmethod
     def _read_Integer16(cls, pbuf):
@@ -504,21 +505,21 @@ class PropertyContext(NodeHeap):
             # получава се ако има meeting за много хора; такъв случай има изолиран
             # във файла 2019.3.pst
             # това се отпечатва в този случай 96 2053 0x805 0x100a0
-            print '*'*70
-            print len(self._hn_pagemap["rgibAlloc"]), hid, hex(hid), hex(self._bth_header["hidRoot"])
+            print('*'*70)
+            print(len(self._hn_pagemap["rgibAlloc"]), hid, hex(hid), hex(self._bth_header["hidRoot"]))
             self._dump_HN_HDR(self._buf, 'Too long')
 
         pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]
         eng = UnpackDesc(self._buf[pos:pos+lx])
-        for _ in range(lx / 8):
+        for _ in range(lx // 8):
             eng.unpack(PC_BTH_RECORD)
         self._props = dict([(x["propTag"], x) for x in eng.out])
+
         enrich_prop_code(self._props.values())
         if not isinstance(self, PropertyNameMap):
             names_map = self._ndb.get_prop_names_map()
             names_map.enrich_props(self._props.values())
-        self._propx = dict([(v["propCode"], k)
-                            for k, v in self._props.iteritems()])
+        self._propx = dict([(v["propCode"], k) for k, v in self._props.items()])
 
     def get_buffer(self, ptag):
         px = self._props[ptag]
@@ -536,6 +537,8 @@ class PropertyContext(NodeHeap):
                 return self._ndb.read_nid(self._nid, hnid)
 
     def get_value(self, prop_name):
+        if prop_name is None:
+            return None
         ptag = self._propx[prop_name]
         pt = self._props[ptag]["propType"]
         pv = PropertyValue(pt, self.get_buffer(ptag))
@@ -556,8 +559,7 @@ class PropertyContext(NodeHeap):
 
 class PropertyNameMap(PropertyContext):
     def __init__(self, ndb):
-        ntm = [k for k, v in nid_internal_types.iteritems()
-               if v[0] == "NAME_TO_ID_MAP"]
+        ntm = [k for k, v in nid_internal_types.items() if v[0] == "NAME_TO_ID_MAP"]
         assert len(ntm) == 1
         PropertyContext.__init__(self, ndb, ntm[0], hnid=None)
         # 2.1.2 Properties (само валидните за контекста)
@@ -636,15 +638,14 @@ class PropertyNameMap(PropertyContext):
 
 
 def test_ndb_info(ndb):
-    print "="*60, "\nNDB Layer info\n"
+    print("="*60, "\nNDB Layer info\n")
     h1 = dict([(a, b) for a, b in ndb._header.iteritems()
                if a in ("ibFileEof", "brefNBT",
                         "brefBBT", "bCryptMethod")])
-    print "{0:,d} bytes".format(sum(x["cb"] for x in ndb._bbt)),
-    print "in {0:,d} blocks by {1:,d} nids".format(
-        len(ndb._bbt), len(ndb._nbt))
+    print("{0:,d} bytes".format(sum(x["cb"] for x in ndb._bbt)), end='')
+    print("in {0:,d} blocks by {1:,d} nids".format(len(ndb._bbt), len(ndb._nbt)))
     pprint(h1, indent=4)
-    print
+    print()
     nid_type_cnt = {}
     sub_nid_type_cnt = {}
 
@@ -662,14 +663,13 @@ def test_ndb_info(ndb):
         tab[nt][1] += ndb.nid_size(nx1, nx2)
 
     def print_tab(tab, title):
-        print title
+        print(title)
         kt = tab.keys()
         kt.sort()
         for nm in kt:
             cnt, size = tab[nm]
-            print "  {0:<25s} {1:>7,d} {2:>12,d}".format(
-                nm, cnt, size)
-        print
+            print("  {0:<25s} {1:>7,d} {2:>12,d}".format(nm, cnt, size))
+        print()
 
     for nx in ndb._nbt:
         append_tab_entry(nid_type_cnt, nx)
@@ -679,15 +679,15 @@ def test_ndb_info(ndb):
                 append_tab_entry(sub_nid_type_cnt, snx, nx)
     print_tab(nid_type_cnt, "Top level")
     print_tab(sub_nid_type_cnt, "Subnodes, o.w.")
-    print "done in {0:,.3f} sec".format(ndb._done_time)
-    print
+    print("done in {0:,.3f} sec".format(ndb._done_time))
+    print()
 
 
 def test_PC(ndb, nid, hnid=None, _max_binary_len=512):
-    print "="*60
-    print nid, hnid, "\n"
+    print("="*60)
+    print(nid, hnid, "\n")
     pc = PropertyContext(ndb, nid, hnid)
-    for k, p in pc._props.iteritems():
+    for k, p in pc._props.items():
         value_buf = pc.get_buffer(p['propTag'])
         pv = PropertyValue(p["propType"], value_buf)
         pt_code, pt_size, _, = pv.pt_desc
@@ -702,13 +702,13 @@ def test_PC(ndb, nid, hnid=None, _max_binary_len=512):
             out = StringIO()
             dump_hex(value_buf[:_max_binary_len], out=out)
             value = out.getvalue().strip()
-        print "0x%04X %-10s %4d %6d %-40s" % (
-            k, pt_code, pt_size, len(value_buf), ptag, ),
-        if value is not None and len(unicode(value)) >= 30:
-            print "\n%s\n" % value
+        print("0x%04X %-10s %4d %6d %-40s" % (
+            k, pt_code, pt_size, len(value_buf), ptag, ), end='')
+        if value is not None and len(value) >= 30:
+            print("\n%s\n" % value)
         else:
-            print "[%s]" % value
-    print
+            print("[%s]" % value)
+    print()
 
 
 def test_nids(ndb, nid_type, fun=None, n=-1, s=0):

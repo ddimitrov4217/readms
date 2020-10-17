@@ -2,6 +2,7 @@
 # vim:ft=python:et:ts=4:sw=4:ai
 
 import re
+import os
 from struct import unpack_from as unpackb, calcsize
 
 
@@ -173,7 +174,7 @@ def uncommpress_rtf(body):
         cb_size = unpackb("<L", body[0:4])[0]
         dw_magic = unpackb("4c", body[8:12])
         dw_crc = unpackb("<L", body[12:16])[0]
-        print "header:", cb_size, cb_rawsize, dw_magic, dw_crc, len(body)
+        print("header:", cb_size, cb_rawsize, dw_magic, dw_crc, len(body))
         assert len(body) == cb_size + 4, (len(body), cb_size)
 
     # инициализация на речника/резултата
@@ -198,7 +199,7 @@ def uncommpress_rtf(body):
             rx_ctrl = unpackb("<B", body[bp])[0]
             bp += 1
             if _local_debug > 1:
-                print format(rx_ctrl, "08b")
+                print(format(rx_ctrl, "08b"))
         if rx_ctrl & 0x1 == 1:
             # референция към речника
             lx = unpackb(">H", body[bp:(bp+2)])[0]
@@ -212,10 +213,10 @@ def uncommpress_rtf(body):
 
             ox = out[lx_off:(lx_off+lx_len)]
             if _local_debug > 1:
-                print "  1 %8d %2d %8d [ %s ]" % (
-                    lx_off, lx_len, wp-prefix_len, "".join(ox))
+                print("  1 %8d %2d %8d [ %s ]" % (
+                    lx_off, lx_len, wp-prefix_len, "".join(ox)))
             if len(ox) < lx_len:
-                print "RTFC: FIXME len(ox) < lx_len:", len(ox), lx_len
+                print("RTFC: FIXME len(ox) < lx_len:", len(ox), lx_len)
             out[wp:(wp+lx_len)] = ox
             bp += 2
             wp += lx_len
@@ -223,7 +224,7 @@ def uncommpress_rtf(body):
             # директно копиране
             ox = unpackb("c", body[bp:(bp+1)])[0]
             if _local_debug > 1:
-                print "  0 %s %8d [ %c ]" % (11*" ", wp-prefix_len, ox)
+                print("  0 %s %8d [ %c ]" % (11*" ", wp-prefix_len, ox))
             out[wp] = ox
             bp += 1
             wp += 1
@@ -233,17 +234,16 @@ def uncommpress_rtf(body):
 
 
 def test_compressed_rtf(test_fnm):
-    import os
 
     def test_file(fnm):
-        print "test_file:", fnm,
+        print("test_file:", fnm, end='')
         fnm_out = os.path.basename(fnm).rsplit(".", 1)
         fnm_out = fnm_out[0]
         fnm_out = os.path.join(os.path.dirname(fnm), "%s.rtf" % fnm_out)
         with open(fnm, "rb") as fin:
             body = memoryview(bytearray(fin.read()))
             out = uncommpress_rtf(body)
-            print "len(out):", len(out)
+            print("len(out):", len(out))
             with open(fnm_out, "wb") as fout:
                 fout.write("".join(out))
 

@@ -1,11 +1,14 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-from readms.readutl import dump_hex
-from readms.metaxl import biff_rec_name
+from io import StringIO
+import re
 from struct import unpack_from as unpackb
 from codecs import decode
-import re
+from readutl import dump_hex
+from metaxl import biff_rec_name
+
+
 
 # Всички цитати и точки, които се използва по-долу са от „OpenOffice.org's
 # Documentation of the Microsoft Compound Document File Format“, който може
@@ -178,21 +181,19 @@ class OLE:
         return sec_list
 
     def __str__(self):
-        from StringIO import StringIO
         out = StringIO()
-        print >>out, "<%s instance at 0x%08X>" % (
-            self.__class__, id(self))
-        print >>out, "  long-sector-size: %6d" % self._lssize
-        print >>out, "  short-sector-size:%6d" % self._sssize
-        print >>out, "  short-max-size:   %6d" % self._max_ssize
-        print >>out, "  DIR first SecID:  %6d" % self._dirs_fsid
-        print >>out, "  SSAT first SecID: %6d" % self._ssat_fsid
-        print >>out, "  MSAT first SecID: %6d" % self._msat_fsid
-        print >>out, "  MSAT list: %s" % (self._msat_list,)
-        print >>out, "  SAT  list: %s" % (self._sat_list,)
-        print >>out, "  SSAT list: %s" % (self._ssat_list,)
+        print("<%s instance at 0x%08X>" % (self.__class__, id(self)), file=out)
+        print("  long-sector-size: %6d" % self._lssize, file=out)
+        print("  short-sector-size:%6d" % self._sssize, file=out)
+        print("  short-max-size:   %6d" % self._max_ssize, file=out)
+        print("  DIR first SecID:  %6d" % self._dirs_fsid, file=out)
+        print("  SSAT first SecID: %6d" % self._ssat_fsid, file=out)
+        print("  MSAT first SecID: %6d" % self._msat_fsid, file=out)
+        print("  MSAT list: %s" % (self._msat_list,), file=out)
+        print("  SAT  list: %s" % (self._sat_list,), file=out)
+        print("  SSAT list: %s" % (self._ssat_list,), file=out)
         for de in self._dire:
-            print >>out, de
+            print(de, file=out)
         return out.getvalue()
 
     def _read_ss(self, dire):
@@ -234,14 +235,12 @@ class OLE:
             self._size = unpackb("<l", buf, pos+120)[0]
 
         def __str__(self):
-            from StringIO import StringIO
             out = StringIO()
-            print >>out, "<%s instance at 0x%08X>" % (
-                self.__class__, id(self))
-            print >>out, "  type: %02X" % self._type
-            print >>out, "  name: %s" % self._name
-            print >>out, "  fsid: %6d" % self._fsid
-            print >>out, "  size: %6d" % self._size
+            print("<%s instance at 0x%08X>" % (self.__class__, id(self)), file=out)
+            print("  type: %02X" % self._type)
+            print("  name: %s" % self._name)
+            print("  fsid: %6d" % self._fsid)
+            print("  size: %6d" % self._size)
             return out.getvalue()
 
     def find_dire(self, dire_pattern):
@@ -284,12 +283,12 @@ def test_ole_1(cx=0):
     def test_read(ole, stream_name, maxlen=200):
         dire = ole.find_dire(stream_name)
         obuf = ole.read_dire(dire)
-        print "%s, len=%d" % (stream_name, len(obuf))
+        print("%s, len=%d" % (stream_name, len(obuf)))
         dump_hex(obuf[:maxlen])
 
     with OLE(test_file(cx)) as ole:
-        print ole
-        print dir(ole)
+        print(ole)
+        print(dir(ole))
         test_read(ole, "Workbook")
         test_read(ole, ".DocumentSummaryInformation")
         test_read(ole, ".SummaryInformation")
@@ -301,7 +300,7 @@ def test_read_1(cx=1, _debug=False):
     fnm = test_file(cx)
     for (rtag, buf,) in read_workbook(fnm):
         if _debug:
-            print "%4d %s" % (len(buf), rtag,)
+            print("%4d %s" % (len(buf), rtag,))
             if len(buf) > 0:
                 dump_hex(buf)
 

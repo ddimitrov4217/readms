@@ -1,7 +1,8 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-from readms.readutl import ulong_from_tuple, UnpackDesc
+from io import BytesIO
+from readutl import ulong_from_tuple, UnpackDesc
 
 # Описанията са от файла [MS-PST] — v20100627
 # Outlook Personal Folders File Format (.pst) Structure Specification
@@ -150,7 +151,7 @@ for _line in _props_tags.splitlines():
 del _line, _numh, _desc, _props_tags
 
 props_tags_codes = {}
-for tag, (tcode, tdesc) in props_tags.iteritems():
+for tag, (tcode, tdesc) in props_tags.items():
     props_tags_codes[tcode] = tag
 
 # [MS-OXCDATA] Data Structures (selected)
@@ -497,7 +498,7 @@ def enrich_prop_code(props):
 
 
 def get_hid_index(value):
-    if isinstance(value, (int, long)):
+    if isinstance(value, (int,)):
         hid = value
     else:
         hid = ulong_from_tuple(value)
@@ -523,7 +524,7 @@ def parse_ms_oxprops(_silent=False):
         next_id = 1
         resource_fnm = "papers/MS-OXPROPS.txt"
         try:
-            data = get_data("readms.metapst", resource_fnm)
+            data = get_data("metapst", resource_fnm).decode('cp1251')
         except IOError:
             yield "END", "Missing %s" % resource_fnm
             return
@@ -575,17 +576,17 @@ def parse_ms_oxprops(_silent=False):
                            for x in prop_types if id_name in x])
                 result.update(dx)
                 if not _silent:
-                    print "%5d hashed by %s" % (len(dx), id_name)
+                    print("%5d hashed by %s" % (len(dx), id_name))
             if not _silent:
-                print info
-                print "%5d properties found" % len(prop_types)
+                print(info)
+                print("%5d properties found" % len(prop_types))
             id_names = ("Property long ID (LID)", "Property ID")
             for id_name in id_names:
                 append_desc(id_name)
             if not _silent:
                 lost = [x["name"] for x in prop_types
                         if all([(z not in x) for z in id_names])]
-                print "%5d lost for no ID defined" % len(lost)
+                print("%5d lost for no ID defined" % len(lost))
     return result
 
 all_props_types = parse_ms_oxprops(_silent=False)

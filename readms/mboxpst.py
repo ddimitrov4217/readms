@@ -5,9 +5,9 @@ import argparse
 import codecs
 from sys import argv, stdout
 from os import path, mkdir, rmdir
-from StringIO import StringIO
-from readms.readpst import NDBLayer, PropertyContext, PropertyValue
-from readms.readutl import run_profile, dump_hex
+from io import StringIO
+from readpst import NDBLayer, PropertyContext, PropertyValue
+from readutl import run_profile, dump_hex
 
 
 def command_line_parser():
@@ -53,8 +53,8 @@ def command_line_parser():
 
 
 def list_content(ndb, params):
-    folders_fmt = (("ContentCount", "%4d"),
-                   ("Subfolders", "%-5s"),
+    folders_fmt = (("ContentCount", "%5d"),
+                   ("Subfolders", "%-7s"),
                    ("DisplayName", "%-30s"),)
     message_fmt = (("MessageSizeExtended", "%8d"),
                    ("MessageDeliveryTime", "%20s"),
@@ -75,22 +75,22 @@ def list_content(ndb, params):
 
     def list_pc(pc_type, fields):
         if not params.profile:
-            print >>out, "="*60
-            print >>out, pc_type, "\n"
+            print("="*60, file=out)
+            print(pc_type, "\n", file=out)
         for nx in ndb._nbt:
             if nx["typeCode"] != pc_type:
                 continue
             pc = PropertyContext(ndb, nx["nid"])
             if not params.profile:
-                print >>out, "%9d %7d" % (nx["nid"], nx["nidParent"]),
+                print("%9d %7d" % (nx["nid"], nx["nidParent"]), file=out, end='')
             for code, fmt in fields:
                 value = pc.get_value(code)
                 if not params.profile:
-                    print >>out, ("%s" % fmt) % value,
+                    print(("%s " % fmt) % value, file=out, end='')
             if not params.profile:
-                print >>out
+                print(file=out)
         if not params.profile:
-            print >>out
+            print(file=out)
 
     if params.list:
         list_pc("NORMAL_FOLDER", folders_fmt)
@@ -98,15 +98,15 @@ def list_content(ndb, params):
         list_pc("NORMAL_MESSAGE", message_fmt)
     if params.list_attachments:
         if not params.profile:
-            print >>out, "="*60
-            print >>out, "ATTACHMENT\n"
+            print("="*60, file=out)
+            print("ATTACHMENT\n", file=out)
         for nid, hnid in ndb.list_nids("ATTACHMENT"):
             pc = PropertyContext(ndb, nid, hnid)
             p1 = pc.get_value("AttachSize")
             p2 = pc.get_value(pc.alt_name("DisplayName", "AttachFilename"))
+            p2 = p2 or '--липсва--'
             if not params.profile:
-                print >>out, "{0:9d} {1:7d} {2:12,d} {3:<20}".format(
-                    nid, hnid, p1, p2)
+                print("{0:9d} {1:7d} {2:12,d} {3:<20}".format(nid, hnid, p1, p2), file=out)
 
 
 def print_messages(ndb, params):
@@ -126,11 +126,11 @@ def print_messages(ndb, params):
                 mkdir(odir)
 
         if not params.profile:
-            print >>out, "="*60
-            print >>out, "NID:", nid, "\n"
+            print("="*60, file=out)
+            print("NID:", nid, "\n", file=out)
 
         pc = PropertyContext(ndb, nid)
-        for k, p in pc._props.iteritems():
+        for k, p in pc._props.items():
             value_buf = pc.get_buffer(p['propTag'])
             pv = PropertyValue(p["propType"], value_buf)
             pt_code, pt_size, _, = pv.pt_desc
@@ -143,8 +143,8 @@ def print_messages(ndb, params):
                     dump_hex(value_buf, out=outx)
                     value = outx.getvalue().strip()
             if not params.profile:
-                print >>out, "0x%04X %-10s %4d %6d %-40s" % (
-                    k, pt_code, pt_size, len(value_buf), ptag, ),
+                print("0x%04X %-10s %4d %6d %-40s" % (
+                    k, pt_code, pt_size, len(value_buf), ptag, ), file=out, end='')
                 if pt_code == "Binary":
                     if params.with_binary:
                         if params.save:
@@ -153,7 +153,7 @@ def print_messages(ndb, params):
                                 onm = path.join(odir, "%s.out" % (ptag,))
                                 with open(onm, "wb+") as fout:
                                     fout.write(value.data)
-                                print >>out
+                                print(file=out)
                                 continue
                             else:
                                 value = PropertyValue.BinaryValue(
@@ -162,14 +162,14 @@ def print_messages(ndb, params):
                             value = PropertyValue.BinaryValue(
                                 value.data[:params.binary_limit])
                     else:
-                        print >>out
+                        print(file=out)
                         continue
-                if value is not None and len(unicode(value)) >= 30:
-                    print >>out, "\n%s\n" % value
+                if value is not None and len(str(value)) >= 30:
+                    print("\n%s\n" % value, file=out)
                 else:
-                    print >>out, "[%s]" % value
+                    print("[%s]" % value, file=out)
         if not params.profile:
-            print >>out
+            print(file=out)
 
         if params.with_attachments:
             for nid, snid in ndb.list_nids("ATTACHMENT", nid):
@@ -178,8 +178,8 @@ def print_messages(ndb, params):
                                        "AttachFilename")
                 att_name = pa.get_value(att_name)
                 if not params.profile:
-                    print >>out, "{0:10,d} {1:<60s}".format(
-                        pa.get_value("AttachSize"), att_name)
+                    print("{0:10,d} {1:<60s}".format(
+                        pa.get_value("AttachSize"), att_name), file=out)
                 att = pa.get_value("AttachDataObject")
                 if not params.profile:
                     with open(path.join(odir, att_name), "wb+") as fout:
