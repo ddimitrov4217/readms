@@ -74,12 +74,11 @@ class MboxCacheEntry:
     def _is_uptodate_index(self, idx_fnm):
         if not os.path.exists(idx_fnm):
             return False
-        else:
-            fn_mtime = os.stat(self._ifile).st_mtime
-            fn_mtime = datetime.fromtimestamp(fn_mtime)
-            ix_mtime = os.stat(idx_fnm).st_mtime
-            ix_mtime = datetime.fromtimestamp(ix_mtime)
-            return fn_mtime <= ix_mtime
+        fn_mtime = os.stat(self._ifile).st_mtime
+        fn_mtime = datetime.fromtimestamp(fn_mtime)
+        ix_mtime = os.stat(idx_fnm).st_mtime
+        ix_mtime = datetime.fromtimestamp(ix_mtime)
+        return fn_mtime <= ix_mtime
 
     def get_mbox(self):
         return self._mbox
@@ -208,14 +207,15 @@ class MboxCacheEntry:
                     topic_list_ = []
                     topic_map[topic_] = topic_list_
                 topic_list_.append((nid, nidp))
+
             with open(topic_idx, "wb") as fout:
                 pickle.dump(topic_map, fout, pickle.HIGHEST_PROTOCOL)
             done_sec = "done in {0:,.3f} sec".format(time()-start_)
             log.info(done_sec)
             return topic_map
-        else:
-            with open(topic_idx, "rb") as fin:
-                return pickle.load(fin)
+
+        with open(topic_idx, "rb") as fin:
+            return pickle.load(fin)
 
     def simple_search(self, patterns):
         """Най-просто AND търсене по критерии.
@@ -349,6 +349,7 @@ class MboxCacheEntry:
             nx1 = list(nx)
             nx1.sort()
             return nx1
+        return None
 
     def get_tag_nids(self, tag):
         return self._tags.get(tag, None)
@@ -534,8 +535,7 @@ class TagsList:
             del self._tags[code]
             self._save()
             return True
-        else:
-            return False
+        return False
 
     def exist_tag(self, code):
         return code in self._tags

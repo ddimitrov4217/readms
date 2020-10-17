@@ -115,14 +115,14 @@ class NDBLayer:
         indx = self._index_name()
         if not os.path.exists(indx):
             return False
-        else:
-            fn_mtime = os.stat(self._file_name).st_mtime
-            fn_mtime = datetime.fromtimestamp(fn_mtime)
-            ix_mtime = os.stat(indx).st_mtime
-            ix_mtime = datetime.fromtimestamp(ix_mtime)
-            # индекса е по-стар от pst файла
-            if fn_mtime > ix_mtime:
-                return False
+
+        fn_mtime = os.stat(self._file_name).st_mtime
+        fn_mtime = datetime.fromtimestamp(fn_mtime)
+        ix_mtime = os.stat(indx).st_mtime
+        ix_mtime = datetime.fromtimestamp(ix_mtime)
+        # индекса е по-стар от pst файла
+        if fn_mtime > ix_mtime:
+            return False
 
         with open(self._index_name(), "rb") as fin:
             index = pickle.load(fin)
@@ -314,8 +314,7 @@ class NDBLayer:
         if bid != 0:
             bx = self._bbtx[bid]
             return bx["cb"]
-        else:
-            return 0
+        return 0
 
     def _get_bid(self, nid, hnid=None):
         nx = self._nbtx[nid]
@@ -528,14 +527,13 @@ class PropertyContext(NodeHeap):
         # 2.3.3.3 PC BTH Record (dwValueHnid, p.60)
         if pt_size > 0 and pt_size <= 4:
             return memoryview(bytearray(px["value"]))
-        else:
-            hnid = ulong_from_tuple(px["value"])
-            nid_type = get_hnid_type(hnid)
-            if nid_type == "HID":
-                pos, lx = self._get_hid_pos_lx(px["value"])
-                return self._buf[pos:pos+lx]
-            else:
-                return self._ndb.read_nid(self._nid, hnid)
+
+        hnid = ulong_from_tuple(px["value"])
+        nid_type = get_hnid_type(hnid)
+        if nid_type == "HID":
+            pos, lx = self._get_hid_pos_lx(px["value"])
+            return self._buf[pos:pos+lx]
+        return self._ndb.read_nid(self._nid, hnid)
 
     def get_value(self, prop_name):
         if prop_name is None:
@@ -548,8 +546,7 @@ class PropertyContext(NodeHeap):
     def get_value_safe(self, prop_name, default=None):
         if prop_name in self._propx:
             return self.get_value(prop_name)
-        else:
-            return default
+        return default
 
     def alt_name(self, *args):
         for x in args:
@@ -594,8 +591,7 @@ class PropertyNameMap(PropertyContext):
         guid_ix = (guid >> 1) - 3
         if guid_ix >= 0:
             return self._guids[guid_ix]
-        else:
-            return None
+        return None
 
     def _read_name_stream(self):
         data = self._read_binary_data(0x0003)
