@@ -227,7 +227,7 @@ class NDBLayer:
             for ex in eng.out:
                 # FIXME много странно, че само така работи
                 ex["nid"] = ex["nid"] & 0xFFFFFFFF
-            entries = dict([(x["nid"], x) for x in eng.out])
+            entries = {x["nid"]: x for x in eng.out}
             return entries, eng.pos
 
         c_level = sign["cLevel"]
@@ -512,14 +512,14 @@ class PropertyContext(NodeHeap):
         eng = UnpackDesc(self._buf[pos:pos+lx])
         for _ in range(lx // 8):
             eng.unpack(PC_BTH_RECORD)
-        self._props = dict([(x["propTag"], x) for x in eng.out])
+        self._props = {x["propTag"]: x for x in eng.out}
 
         enrich_prop_code(self._props.values())
         if not isinstance(self, PropertyNameMap):
             names_map = self._ndb.get_prop_names_map()
             names_map.enrich_props(self._props.values())
         # XXX Да се разследва и отстрани необходимостта от това str
-        self._propx = dict([(str(v["propCode"]), k) for k, v in self._props.items()])
+        self._propx = {str(v["propCode"]): k for k, v in self._props.items()}
 
     def get_buffer(self, ptag):
         px = self._props[ptag]
@@ -568,8 +568,7 @@ class PropertyNameMap(PropertyContext):
         self._guids = self._read_guid_stream()
         names = self._read_name_stream()
         self._props = self._read_string_stream(names)
-        self._props = dict([(tag, (name, guid))
-                            for tag, guid, name in self._props])
+        self._props = {tag: (name, guid) for tag, guid, name in self._props}
 
     def _read_guid_stream(self):
         data = self._read_binary_data(0x0002)
@@ -636,9 +635,8 @@ class PropertyNameMap(PropertyContext):
 
 def test_ndb_info(ndb):
     print("="*60, "\nNDB Layer info\n")
-    h1 = dict([(a, b) for a, b in ndb._header.iteritems()
-               if a in ("ibFileEof", "brefNBT",
-                        "brefBBT", "bCryptMethod")])
+    h1 = {a: b for a, b in ndb._header.tems()
+          if a in ("ibFileEof", "brefNBT", "brefBBT", "bCryptMethod")}
     print("{0:,d} bytes".format(sum(x["cb"] for x in ndb._bbt)), end='')
     print("in {0:,d} blocks by {1:,d} nids".format(len(ndb._bbt), len(ndb._nbt)))
     pprint(h1, indent=4)

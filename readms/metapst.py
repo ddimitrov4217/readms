@@ -571,8 +571,7 @@ def parse_ms_oxprops(_silent=False):
             prop[att] = desc
         if etag == "END":
             def append_desc(id_name):
-                dx = dict([(int(x[id_name], 16), x)
-                           for x in prop_types if id_name in x])
+                dx = {int(x[id_name], 16): x for x in prop_types if id_name in x}
                 result.update(dx)
                 if not _silent:
                     print("%5d hashed by %s" % (len(dx), id_name))
