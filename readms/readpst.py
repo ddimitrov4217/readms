@@ -302,7 +302,8 @@ class NDBLayer:
                         totb += read_xblock_bids(datax)
                     return totb
                 raise KeyError(sign["cLevel"])
-            totb = read_xblock_bids(data)
+
+            read_xblock_bids(data)
             out_data = bytearray()
             for bix in data_bids:
                 data = self._read_data_block(bix)
@@ -724,8 +725,8 @@ if __name__ == '__main__':
     from sys import argv
     fnm = argv[1] if len(argv) > 1 else "test"
     fnm = path.join("pstdata", "%s.pst" % fnm)
-    with NDBLayer(fnm) as ndb:
-        test_ndb_info(ndb)
+    with NDBLayer(fnm) as ndb_:
+        test_ndb_info(ndb_)
         # test_nids(ndb, "NORMAL_FOLDER", fun=test_PC, n=2, s=1)
         # test_nids(ndb, "NORMAL_MESSAGE", fun=test_PC, n=1)
         # test_nids(ndb, "NAME_TO_ID_MAP", fun=test_PC)

@@ -155,12 +155,9 @@ def print_messages(ndb, params):
                                     fout.write(value.data)
                                 print(file=out)
                                 continue
-                            else:
-                                value = PropertyValue.BinaryValue(
-                                    value.data[:params.binary_limit])
+                            value = PropertyValue.BinaryValue(value.data[:params.binary_limit])
                         else:
-                            value = PropertyValue.BinaryValue(
-                                value.data[:params.binary_limit])
+                            value = PropertyValue.BinaryValue(value.data[:params.binary_limit])
                     else:
                         print(file=out)
                         continue
@@ -172,8 +169,8 @@ def print_messages(ndb, params):
             print(file=out)
 
         if params.with_attachments:
-            for nid, snid in ndb.list_nids("ATTACHMENT", nid):
-                pa = PropertyContext(ndb, nid, snid)
+            for anid, snid in ndb.list_nids("ATTACHMENT", nid):
+                pa = PropertyContext(ndb, anid, snid)
                 att_name = pa.alt_name("AttachLongFilename", "DisplayName",
                                        "AttachFilename")
                 att_name = pa.get_value(att_name)

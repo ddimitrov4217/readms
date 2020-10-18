@@ -258,5 +258,5 @@ def test_compressed_rtf(test_fnm):
 
 
 if __name__ == '__main__':
-    from sys import argv
-    test_compressed_rtf(argv[1])
+    from sys import argv as argv_
+    test_compressed_rtf(argv_[1])

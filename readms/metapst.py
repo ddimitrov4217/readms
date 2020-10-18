@@ -150,8 +150,8 @@ for _line in _props_tags.splitlines():
 del _line, _numh, _desc, _props_tags  # pylint: disable=undefined-loop-variable
 
 props_tags_codes = {}
-for tag, (tcode, tdesc) in props_tags.items():
-    props_tags_codes[tcode] = tag
+for tag_, (tcode, tdesc) in props_tags.items():
+    props_tags_codes[tcode] = tag_
 
 # [MS-OXCDATA] Data Structures (selected)
 _prop_types = """\
@@ -559,30 +559,30 @@ def parse_ms_oxprops(_silent=False):
                         desc = " ".join((desc, _line))
             yield "END", "Successfuly loaded %s" % resource_fnm
 
-    prop_types = []
+    parsed_prop_types = []
     result = {}
     for etag, info in read_events():
         if etag == "PROP":
             name, = info
             prop = dict(name=name.replace("PidTag", ""))
-            prop_types.append(prop)
+            parsed_prop_types.append(prop)
         if etag == "DESC":
             att, desc = info
             prop[att] = desc
         if etag == "END":
             def append_desc(id_name):
-                dx = {int(x[id_name], 16): x for x in prop_types if id_name in x}
+                dx = {int(x[id_name], 16): x for x in parsed_prop_types if id_name in x}
                 result.update(dx)
                 if not _silent:
                     print("%5d hashed by %s" % (len(dx), id_name))
             if not _silent:
                 print(info)
-                print("%5d properties found" % len(prop_types))
+                print("%5d properties found" % len(parsed_prop_types))
             id_names = ("Property long ID (LID)", "Property ID")
             for id_name in id_names:
                 append_desc(id_name)
             if not _silent:
-                lost = [x["name"] for x in prop_types
+                lost = [x["name"] for x in parsed_prop_types
                         if all([(z not in x) for z in id_names])]
                 print("%5d lost for no ID defined" % len(lost))
     return result
