@@ -618,7 +618,8 @@ class SearchTextIndex:
     def _sweep_stop_worlds(self, text):
         return text - self._stop_words
 
-    def _load_stop_words(self):
+    @staticmethod
+    def _load_stop_words():
         data = get_data("leasweb.model", "stopwords.txt")
         result = set()
         if data is not None:
