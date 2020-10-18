@@ -101,7 +101,7 @@ class UnpackDesc:
                 cnt = 1
                 typz = px
             bsz = patt_sz.match(px).group("bsz")
-            bsz = bsz is not None and int(bsz) or 1
+            bsz = int(bsz) if bsz is not None else 1
             sd.append((name, typz, bsz * cnt))
         return sd
 

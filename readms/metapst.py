@@ -492,7 +492,7 @@ def enrich_prop_code(props):
     for prop in props:
         tag = prop["propTag"]
         tag_info = all_props_types.get(tag, None)
-        tag_code = tag_info is not None and tag_info["name"] or "0x%04X" % tag
+        tag_code = tag_info["name"] if tag_info is not None else "0x%04X" % tag
         prop["propCode"] = tag_code
 
 
@@ -512,7 +512,7 @@ def get_hnid_type(hnid):
     is NID_TYPE_HID. Otherwise, the HNID refers to a NID.
     See Section 2.3.3.2.
     """
-    return hnid & 0x1F == 0 and "HID" or "NID"
+    return "HID" if hnid & 0x1F == 0 else "NID"
 
 
 def parse_ms_oxprops(_silent=False):

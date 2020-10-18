@@ -687,7 +687,7 @@ def test_PC(ndb, nid, hnid=None, _max_binary_len=512):
         pv = PropertyValue(p["propType"], value_buf)
         pt_code, pt_size, _, = pv.pt_desc
         ptag = all_props_types.get(p['propTag'], None)
-        ptag = ptag and ptag["name"] or p["propCode"]
+        ptag = ptag["name"] if ptag else p["propCode"]
         try:
             value = pv.get_value()
             BinValue = PropertyValue.BinaryValue
@@ -722,7 +722,7 @@ def test_nids(ndb, nid_type, fun=None, n=-1, s=0):
 if __name__ == '__main__':
     from os import path
     from sys import argv
-    fnm = len(argv) > 1 and argv[1] or u"test"
+    fnm = argv[1] if len(argv) > 1 else "test"
     fnm = path.join("pstdata", "%s.pst" % fnm)
     with NDBLayer(fnm) as ndb:
         test_ndb_info(ndb)
