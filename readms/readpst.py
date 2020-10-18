@@ -636,9 +636,9 @@ class PropertyNameMap(PropertyContext):
 
 def test_ndb_info(ndb):
     print("="*60, "\nNDB Layer info\n")
-    h1 = {a: b for a, b in ndb._header.tems()
+    h1 = {a: b for a, b in ndb._header.items()
           if a in ("ibFileEof", "brefNBT", "brefBBT", "bCryptMethod")}
-    print("{0:,d} bytes".format(sum(x["cb"] for x in ndb._bbt)), end='')
+    print("{0:,d} bytes".format(sum(x["cb"] for x in ndb._bbt)), end=' ')
     print("in {0:,d} blocks by {1:,d} nids".format(len(ndb._bbt), len(ndb._nbt)))
     pprint(h1, indent=4)
     print()
@@ -660,11 +660,11 @@ def test_ndb_info(ndb):
 
     def print_tab(tab, title):
         print(title)
-        kt = tab.keys()
+        kt = list(tab.keys())
         kt.sort()
         for nm in kt:
             cnt, size = tab[nm]
-            print("  {0:<25s} {1:>7,d} {2:>12,d}".format(nm, cnt, size))
+            print("  {0:<30s} {1:>7,d} {2:>12,d}".format(nm, cnt, size))
         print()
 
     for nx in ndb._nbt:
@@ -700,7 +700,7 @@ def test_PC(ndb, nid, hnid=None, _max_binary_len=512):
             value = out.getvalue().strip()
         print("0x%04X %-10s %4d %6d %-40s" % (
             k, pt_code, pt_size, len(value_buf), ptag, ), end='')
-        if value is not None and len(value) >= 30:
+        if value is not None and len(str(value)) >= 30:
             print("\n%s\n" % value)
         else:
             print("[%s]" % value)
@@ -721,14 +721,11 @@ def test_nids(ndb, nid_type, fun=None, n=-1, s=0):
 
 
 if __name__ == '__main__':
-    from os import path
     from sys import argv
-    fnm = argv[1] if len(argv) > 1 else "test"
-    fnm = path.join("pstdata", "%s.pst" % fnm)
-    with NDBLayer(fnm) as ndb_:
+    with NDBLayer(argv[1]) as ndb_:
         test_ndb_info(ndb_)
-        # test_nids(ndb, "NORMAL_FOLDER", fun=test_PC, n=2, s=1)
-        # test_nids(ndb, "NORMAL_MESSAGE", fun=test_PC, n=1)
-        # test_nids(ndb, "NAME_TO_ID_MAP", fun=test_PC)
-        # pm = PropertyNameMap(ndb)
+        test_nids(ndb_, "NORMAL_FOLDER", fun=test_PC, n=3, s=1)
+        # test_nids(ndb_, "NORMAL_MESSAGE", fun=test_PC, n=1)
+        # test_nids(ndb_, "NAME_TO_ID_MAP", fun=test_PC)
+        # pm = PropertyNameMap(ndb_)
         # test_PC(ndb, 2121252, 36933)
