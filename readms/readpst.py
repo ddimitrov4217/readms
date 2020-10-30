@@ -79,9 +79,7 @@ class NDBLayer:
             self._read_bbt(self._header["brefBBT"])
             self._read_nbt(self._header["brefNBT"])
             self._save_index()
-        # TODO create tree structutes for BBT and NBT
-        # тъй като файлът е read-only, за сега,
-        # hash структура също върши работа
+        # тъй като файлът е read-only, за сега, hash структура също върши работа
         self._prop_internal = None
         self._done_time = time.time() - start
 
@@ -226,7 +224,6 @@ class NDBLayer:
             for _ in range(sign["cEnt"]):
                 eng.unpack(SL_ENTRY)
             for ex in eng.out:
-                # FIXME много странно, че само така работи
                 ex["nid"] = ex["nid"] & 0xFFFFFFFF
             entries = {x["nid"]: x for x in eng.out}
             return entries, eng.pos
