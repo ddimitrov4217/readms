@@ -113,7 +113,7 @@ class MboxCacheEntry:
                 dttm = pc.get_value("MessageDeliveryTime")
                 nid_list.append((nid, dttm))
 
-            nid_list.sort(key=lambda x: x[1], reverse=True)
+            nid_list.sort(key=lambda x: (x[1] is None, x[1]), reverse=True)
             self._sorted_nid[folder] = nid_list
 
         result = []

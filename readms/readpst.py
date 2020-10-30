@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
+from sys import stderr
 import time
 import uuid
 import os
@@ -505,9 +506,10 @@ class PropertyContext(NodeHeap):
             # получава се ако има meeting за много хора; такъв случай има изолиран
             # във файла 2019.3.pst
             # това се отпечатва в този случай 96 2053 0x805 0x100a0
-            print('*'*70)
-            print(len(self._hn_pagemap["rgibAlloc"]), hid, hex(hid), hex(self._bth_header["hidRoot"]))
-            self._dump_HN_HDR(self._buf, 'Too long')
+            # print('*'*70)
+            print('hid > 0x1F problem: ', len(self._hn_pagemap["rgibAlloc"]), hid, hex(hid), hex(self._bth_header["hidRoot"]), file=stderr)
+            # self._dump_HN_HDR(self._buf, 'Too long')
+            hid = 0x1F
 
         pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]
         eng = UnpackDesc(self._buf[pos:pos+lx])
@@ -537,7 +539,7 @@ class PropertyContext(NodeHeap):
         return self._ndb.read_nid(self._nid, hnid)
 
     def get_value(self, prop_name):
-        if prop_name is None:
+        if prop_name is None or prop_name not in self._propx:
             return None
         ptag = self._propx[prop_name]
         pt = self._props[ptag]["propType"]

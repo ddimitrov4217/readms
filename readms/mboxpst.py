@@ -56,7 +56,7 @@ def list_content(ndb, params):
     folders_fmt = (("ContentCount", "%5d"),
                    ("Subfolders", "%-7s"),
                    ("DisplayName", "%-30s"),)
-    message_fmt = (("MessageSizeExtended", "%8d"),
+    message_fmt = (("MessageSizeExtended", "%8s"),
                    ("MessageDeliveryTime", "%20s"),
                    ("Subject", "%-30s"),)
 
@@ -68,8 +68,7 @@ def list_content(ndb, params):
     if params.save:
         bnm = path.basename(params.pstfile).split(".")[0]
         dnm = path.dirname(params.pstfile)
-        out = codecs.open(path.join(dnm, "%s_list.txt" % bnm),
-                          "w+", "UTF-8")
+        out = codecs.open(path.join(dnm, "%s_list.txt" % bnm), "w+", "UTF-8")
     else:
         out = stdout
 
