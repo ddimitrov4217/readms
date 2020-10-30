@@ -13,6 +13,7 @@ import email
 import email.header as email_header
 import re
 import logging
+import click
 
 from readms.readpst import NDBLayer, PropertyContext
 
@@ -662,3 +663,45 @@ class SearchTextIndex:
             with open_enc("search_index_debug.txt", "wb", "UTF-8") as fout:
                 for ex, nids in self.index.items():
                     print(ex, nids, file=fout)
+
+
+@click.group()
+@click.option('--store', default='outlook/index', help='Директория за индексиране на pst файловете')
+@click.pass_context
+def manage_tags(ctx=None, store=None):
+    ctx.ensure_object(dict)
+    ctx.obj['store'] = store
+
+
+@manage_tags.command('list', help='Извежда регистрираните маркери')
+@click.pass_context
+def list_tags(ctx):
+    tags = TagsList(ctx.obj['store'])
+    tags_codes = ', '.join([x_[0] for x_ in tags.get_tags()])
+    print('\nРегистрирани до момента тагове: ', tags_codes)
+
+
+@manage_tags.command('add', help='Добавя маркери за използване по съобщенията')
+@click.argument('codes', nargs=-1, required=False)
+@click.pass_context
+def addtags(ctx, codes):
+    if codes is None:
+        return
+    tags = TagsList(ctx.obj['store'])
+    for tag in codes:
+        tags.add_tag(tag, tag)
+
+
+@manage_tags.command('del', help='Изтрива регистрирани маркери за използване по съобщенията')
+@click.argument('codes', nargs=-1, required=False)
+@click.pass_context
+def deltags(ctx, codes):
+    if codes is None:
+        return
+    tags = TagsList(ctx.obj['store'])
+    for tag in codes:
+        tags.del_tag(tag)
+
+
+if __name__ == '__main__':
+    manage_tags()
