@@ -68,7 +68,6 @@ class MboxCacheEntry:
     def _index_content(self):
         self._folders = self._index_pc("NORMAL_FOLDER")
         self._message = self._index_pc("NORMAL_MESSAGE", use_filter=True)
-        # TODO не е най-оптимално да се забравят сортираните съобщения
         self._sorted_nid = {}
 
     def _is_uptodate_index(self, idx_fnm):
