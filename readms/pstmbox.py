@@ -61,8 +61,7 @@ class MboxCacheEntry:
             if nx["typeCode"] != pc_type:
                 continue
             with_filter = use_filter and self._search_match_nids is not None
-            if (with_filter and nx["nid"] in self._search_match_nids or
-                    not with_filter):
+            if with_filter and nx["nid"] in self._search_match_nids or not with_filter:
                 pc_list.append((nx["nid"], nx["nidParent"]))
         return pc_list
 
@@ -407,6 +406,7 @@ class MboxCacheEntry:
                     if len(self._search_match_nids) == 0:
                         break
         self._index_content()
+        return {'nid': self._message[0][1]} if len(self._message) > 0 else None
 
     def search_linked_messages(self, nid):
         log.info('linked to %d', nid)
