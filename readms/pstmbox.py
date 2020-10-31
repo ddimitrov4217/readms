@@ -417,6 +417,10 @@ class MboxCacheEntry:
         # папката (една от всички) в която има свързани съобщения
         return {'nid': topic_list[0][1]} if len(topic_list) > 0 else None
 
+    def search_tags(self):
+        self._search_match_nids = self._tags_nid.keys()
+        self._index_content()
+        return {'nid': self._message[0][1]} if len(self._message) > 0 else None
 
 class HiddenField:
     """Скрити полета от съобщенията"""
