@@ -408,6 +408,15 @@ class MboxCacheEntry:
                         break
         self._index_content()
 
+    def search_linked_messages(self, nid):
+        log.info('linked to %d', nid)
+        pc = PropertyContext(self.get_mbox(), int(nid))
+        topic_list = self.topic_index().get(self.topic_key(pc))
+        self._search_match_nids = {x_[0] for x_ in topic_list}
+        self._index_content()
+        # папката (една от всички) в която има свързани съобщения
+        return {'nid': topic_list[0][1]} if len(topic_list) > 0 else None
+
 
 class HiddenField:
     """Скрити полета от съобщенията"""
