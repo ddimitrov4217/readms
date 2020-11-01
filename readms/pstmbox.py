@@ -607,7 +607,7 @@ class SearchTextIndex:
 
             # извличане на списъка с думи
             if attr == "Subject":
-                text = text[2:]
+                text = text[2:] if text is not None else None
             text = self._split_words(text)
             text = self._sweep_stop_worlds(text)
 

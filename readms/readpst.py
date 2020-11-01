@@ -354,9 +354,9 @@ class NDBLayer:
             zx = self._nbtx[start_with].get("subEntries", None)
             if zx is not None:
                 return nx_list(zx.values(), start_with)
-        else:
-            startx = self._nbt
-        return nx_list(startx)
+            return nx_list([])
+
+        return nx_list(self._nbt)
 
     def get_prop_names_map(self):
         if self._prop_internal is None:
