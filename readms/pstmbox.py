@@ -584,9 +584,8 @@ class SearchTextIndex:
 
     def create(self, ndb):
         # само истински думи - с букви
-        self._words_split_re = re.compile(
-            u"([a-zA-Zа-яА-Я]{%d,})" % self._min_len,
-            re.MULTILINE | re.UNICODE)
+        self._words_split_re = re.compile("([a-zA-Zа-яА-Я]{%d,})" % self._min_len, 
+                                          re.MULTILINE | re.UNICODE)
         self._stop_words = self._load_stop_words()
         self._process_mbox(ndb)
 
@@ -633,21 +632,23 @@ class SearchTextIndex:
 
     @staticmethod
     def _load_stop_words():
-        data = get_data("leasweb.model", "stopwords.txt")
-        result = set()
-        if data is not None:
-            for line_ in data.splitlines():
-                line_ = line_.strip()
-                if len(line_) == 0 or line_.startswith("#"):
-                    continue
-                line_ = line_.decode("UTF-8")
-                result.add(line_)
-        log.debug(u"%s", u"заредени са {0:,d} stop words".format(len(result)))
-        return result
+        try:
+            result = set()
+            resource_fnm = "papers/stopwords.txt"
+            data = get_data("readms.metapst", resource_fnm).decode('UTF-8')
+            if data is not None:
+                for line_ in data.splitlines():
+                    line_ = line_.strip()
+                    if len(line_) == 0 or line_.startswith("#"):
+                        continue
+                    result.add(line_)
+            log.info("заредени са {0:,d} stop words".format(len(result)))
+            return result
+        except IOError:
+            log.warning('няма файл %s', resource_fnm)
+            return set()
 
     def _sweep_analyze(self):
-        # TODO махане на най-често използваните (неселективни) думи?
-        # може да се добавят като stop words
         nids = set()
         for ix in self.index.values():
             nids.update(ix)
