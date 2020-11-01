@@ -74,6 +74,8 @@ class NDBLayer:
         self._nbt = []
         start = time.time()
         self._file_name = file_name
+        if index_dir is None:
+            index_dir = os.path.join(os.path.dirname(file_name), 'index')
         self._index_dir = index_dir
         if not self._load_index():
             self._read_bbt(self._header["brefBBT"])
@@ -525,7 +527,7 @@ class PropertyContext(NodeHeap):
         px = self._props[ptag]
         _, pt_size, _ = prop_types[px["propType"]]
         # 2.3.3.3 PC BTH Record (dwValueHnid, p.60)
-        if pt_size > 0 and pt_size <= 4:
+        if 0 < pt_size <= 4:
             return memoryview(bytearray(px["value"]))
 
         hnid = ulong_from_tuple(px["value"])
