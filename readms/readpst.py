@@ -1,11 +1,11 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-from sys import stderr
 import time
 import uuid
 import os
 import pickle
+import logging
 
 from pprint import pprint
 from codecs import decode
@@ -26,6 +26,8 @@ from readms.metapst import (
     BLOCK_TRAILER, BLOCK_SIGNATURE, SL_ENTRY,
     HN_HDR, HN_PAGE_MAP, BTH_HEADER,
     PC_BTH_RECORD)
+
+log = logging.getLogger(__name__)
 
 
 def read_ndb_page(fin, bref):
@@ -492,23 +494,29 @@ class PropertyContext(NodeHeap):
     def __init__(self, ndb, nid, hnid=None):
         NodeHeap.__init__(self, ndb, nid, hnid)
         assert self._hn_header["bClientSig"][0] == "bTypePC"
-        self._bth_header = self._parse_btree_header(
-            self._hn_header["hidUserRoot"])
+        self._bth_header = self._parse_btree_header(self._hn_header["hidUserRoot"])
         self._read_props_map()
 
     def _read_props_map(self):
         hid = get_hid_index(self._bth_header["hidRoot"])
-        if hid > 0x1F:
+
+        # По долния проблем, за целите на разследването
+        # print('hid>0x1F: len:%d hid:%d/%s hidRoot:%s' % (
+        #     len(self._hn_pagemap["rgibAlloc"]), hid, hex(hid),
+        #     hex(self._bth_header["hidRoot"])))
+        # print(self._bth_header)
+        # self._dump_HN_HDR(self._buf, 'hid>0x1F')
+
+        # NOTE За тези, които са дефиктни, hidBlockIndex (виж 2.3.1.1 HID) е различно от нула
+        # Това означава че описанието на атрибутите стоят в отделен блок; така че проверката
+        # не трябва да е както беше с 1F (много необосновано) ами както е направена по-долу
+        if self._bth_header["hidRoot"] >> 16 != 0:
             # FIXME В този случай получава IndexError: list index out of range
-            # възможно е причината да е в get_hid_index
-            # dump за такъв случай има във файла testdata/pst_error_01.txt
-            # получава се ако има meeting за много хора; такъв случай има изолиран
-            # във файла 2019.3.pst
-            # това се отпечатва в този случай 96 2053 0x805 0x100a0
-            # print('*'*70)
-            print('hid > 0x1F problem: ', len(self._hn_pagemap["rgibAlloc"]), hid, hex(hid), hex(self._bth_header["hidRoot"]), file=stderr)
-            # self._dump_HN_HDR(self._buf, 'Too long')
-            hid = 0x1F
+            # причината е че не се определя правилно таблицата с описанието на атрибутите
+            # и те се чeтат от където падне; за този (твърде рядък) случай не се извлича нищо
+            self._props = {}
+            self._propx = {}
+            return
 
         pos, lx = self._hn_pagemap["rgibAlloc"][hid-1]
         eng = UnpackDesc(self._buf[pos:pos+lx])
