@@ -32,6 +32,8 @@ class MboxCacheEntry:
         self._search_index = None
         self._search_match_nids = None
         self._sorted_nid = {}
+        self._folders = []
+        self._message = []
         self.update(_force=True)
         self.tags_list = TagsList(self._index_dir)
         self._load_tags()
@@ -570,6 +572,10 @@ class SearchTextIndex:
         self.index = {}
         self._attrs = attrs
         self._min_len = _min_len
+        self._stop_words = set()
+        # само истински думи - с букви
+        self._words_split_re = '([a-zA-Zа-яА-Я]{%d,})' % self._min_len
+        self._words_split_re = re.compile(self._words_split_re, re.MULTILINE | re.UNICODE)
 
     def save(self, file_name):
         with open(file_name, "wb") as fout:
@@ -583,9 +589,6 @@ class SearchTextIndex:
                   format(len(self.index)))
 
     def create(self, ndb):
-        # само истински думи - с букви
-        self._words_split_re = re.compile("([a-zA-Zа-яА-Я]{%d,})" % self._min_len, 
-                                          re.MULTILINE | re.UNICODE)
         self._stop_words = self._load_stop_words()
         self._process_mbox(ndb)
 
