@@ -1,86 +1,55 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-import os
-import zipfile
+from os import listdir, path
+from zipfile import ZipFile, ZIP_DEFLATED
 import pickle
+import click
 
-from paste.script.command import Command
-from paste.deploy import appconfig
-from leasweb.wsgiapp import load_environment
-from leasweb.model import MboxCacheEntry
-
-
-class ArchiveMessagesTags(Command):
-
-    min_args = 1
-    max_args = 1
-    here_dir = os.getcwd()
-    usage = "CONFIG_FILE"
-    summary = "Save messages tags into zip file"
-    group_name = "Tags"
-
-    parser = Command.standard_parser(verbose=True)
-    parser.add_option("--outdir", action="store",
-                      dest="outdir", default=here_dir,
-                      help="Output dir [%default]")
-
-    def command(self):
-        config_file = self.args[0]
-        config_name = "config:%s" % config_file
-        appconf = appconfig(config_name, relative_to=self.here_dir)
-        appconf.global_conf["history.enabled"] = False
-        self.archive_tags(appconf)
-
-    def archive_tags(self, appconf):
-        output_file = "leasweb_tags_index.zip"
-        output_file = os.path.join(self.options.outdir, output_file)
-        index_dir = appconf["pstmbox_index_dir"]
-        zf = zipfile.ZipFile(output_file, "w", zipfile.ZIP_DEFLATED)
-        for fnm in os.listdir(index_dir):
-            if fnm.endswith("_tags.idx") or fnm.endswith("_msgids.idx"):
-                print(fnm)
-                zf.write(os.path.join(index_dir, fnm), fnm)
-        zf.close()
-        return output_file
+# from paste.script.command import Command
+# from paste.deploy import appconfig
+# from leasweb.wsgiapp import load_environment
+from readms.pstmbox import MboxCacheEntry
 
 
-class MergeMessagesTags(Command):
+@click.group()
+@click.option('--store', default='outlook/index', help='Директория за индексиране на pst файловете')
+@click.pass_context
+def manage_tags(ctx=None, store=None):
+    ctx.ensure_object(dict)
+    ctx.obj['store'] = store
 
-    min_args = 2
-    max_args = 2
-    here_dir = os.getcwd()
-    usage = "CONFIG_FILE dir_with_tags_to_merge"
-    summary = "Import (merge) messages tags into leasweb index"
-    group_name = "Tags"
-    parser = Command.standard_parser(verbose=True)
 
-    def command(self):
-        config_file = self.args[0]
-        config_name = "config:%s" % config_file
-        appconf = appconfig(config_name, relative_to=self.here_dir)
-        appconf.global_conf["history.enabled"] = False
-        load_environment(appconf.global_conf, appconf.local_conf)
-        import_dir = self.args[1]
-        for mbox_name in self.list_mbox(import_dir):
-            print("\n", mbox_name)
-            self.apply_tags_file(appconf, import_dir, mbox_name)
+@manage_tags.command('export', help='Архивира таговете на съобщенията')
+@click.option('--archive', default='tags_archive.zip', help='Име на файла за архива')
+@click.pass_context
+def export_tags(ctx, archive):
+    zf = ZipFile(path.join(ctx.obj['store'], archive), "w", ZIP_DEFLATED)
+    for fnm in listdir(ctx.obj['store']):
+        if fnm.endswith("_tags.idx") or fnm.endswith("_msgids.idx"):
+            print('...', fnm)
+            zf.write(path.join(ctx.obj['store'], fnm), fnm)
+    zf.close()
 
-    @staticmethod
-    def list_mbox(import_dir):
-        for fnm in os.listdir(import_dir):
+
+@manage_tags.command('merge', help='Добавя архивирани таговете към съобщенията')
+@click.option('--archive-dir', help='Директория където е разпакетиран на файла за архива')
+@click.option('--pstpath', default='outlook', help='Директория в която са pst файловете')
+@click.pass_context
+def merge_tags(ctx, archive, pstpath):
+    def list_mbox():
+        for fnm in listdir(ctx.obj['store']):
             if not fnm.endswith("_tags.idx"):
                 continue
             yield fnm.replace("_tags.idx", "")
 
-    @staticmethod
-    def apply_tags_file(appconf, import_dir, mbox_name):
-        mbox_file = os.path.join(appconf["pstmbox_dir"], "%s.pst" % mbox_name)
-        msgids_import = os.path.join(import_dir, "%s_msgids.idx" % mbox_name)
-        tags_import = os.path.join(import_dir, "%s_tags.idx" % mbox_name)
-        if (not os.path.exists(msgids_import) or
-                not os.path.exists(tags_import) or
-                not os.path.exists(mbox_file)):
+    def apply_tags_file(mbox_name):
+        mbox_file = path.join(pstpath, "%s.pst" % mbox_name)
+        msgids_import = path.join(archive, "%s_msgids.idx" % mbox_name)
+        tags_import = path.join(archive, "%s_tags.idx" % mbox_name)
+        if (not path.exists(msgids_import) or
+                not path.exists(tags_import) or
+                not path.exists(mbox_file)):
             return False
 
         with open(msgids_import, "rb") as fin:
@@ -98,10 +67,8 @@ class MergeMessagesTags(Command):
                 msgid = msgids.get(nid, None)
                 if msgid is not None:
                     if mx is None:
-                        mx = MboxCacheEntry(mbox_file,
-                                            appconf["pstmbox_index_dir"])
-                        target_msgids = dict((msgid, nid)
-                                             for nid, msgid in mx._msgids)
+                        mx = MboxCacheEntry(mbox_file, ctx.obj['store'])
+                        target_msgids = dict((msgid, nid) for nid, msgid in mx._msgids)
                     target_nid = target_msgids.get(msgid, None)
                     if target_nid is not None:
                         if target_nid not in mx.get_tag_nids(tag):
@@ -115,3 +82,11 @@ class MergeMessagesTags(Command):
         if mx is not None:
             mx.close()
         return True
+
+    for mbox_name in list_mbox():
+        print("\n", mbox_name)
+        apply_tags_file(mbox_name)
+
+
+if __name__ == '__main__':
+    manage_tags()
