@@ -6,11 +6,9 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import pickle
 import click
 
-# from paste.script.command import Command
-# from paste.deploy import appconfig
-# from leasweb.wsgiapp import load_environment
 from readms.pstmbox import MboxCacheEntry
 
+# TODO Да се добавят и фукциите от pstmbox
 
 @click.group()
 @click.option('--store', default='outlook/index', help='Директория за индексиране на pst файловете')
@@ -45,6 +43,7 @@ def merge_tags(ctx, archive, pstpath):
 
     def apply_tags_file(mbox_name):
         mbox_file = path.join(pstpath, "%s.pst" % mbox_name)
+        # TODO Да работи директно с архивирания файл
         msgids_import = path.join(archive, "%s_msgids.idx" % mbox_name)
         tags_import = path.join(archive, "%s_tags.idx" % mbox_name)
         if (not path.exists(msgids_import) or
