@@ -528,8 +528,7 @@ class PropertyContext(NodeHeap):
         if not isinstance(self, PropertyNameMap):
             names_map = self._ndb.get_prop_names_map()
             names_map.enrich_props(self._props.values())
-        # XXX Да се разследва и отстрани необходимостта от това str
-        self._propx = {str(v["propCode"]): k for k, v in self._props.items()}
+        self._propx = {v["propCode"]: k for k, v in self._props.items()}
 
     def get_buffer(self, ptag):
         px = self._props[ptag]
@@ -624,6 +623,7 @@ class PropertyNameMap(PropertyContext):
         names_w = [decode(names_data[x+4:y], "UTF-16LE", "replace")
                    for x, y in zip(allocs[:-1], allocs[1:])]
         names_w = [x.encode('ascii', errors='ignore') for x in names_w]
+        names_w = [x.decode('ascii') for x in names_w]
         names_out = [(idx+0x8000, self._get_guid(guid), desc)
                      for (idx, _, guid), desc in zip(names, names_w)]
         return names_out
