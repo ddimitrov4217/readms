@@ -3,7 +3,7 @@
 
 import argparse
 import codecs
-from sys import argv, stdout
+from sys import argv, stdout, stderr
 from os import path, mkdir, rmdir
 from io import StringIO
 from readms.readpst import NDBLayer, PropertyContext, PropertyValue
@@ -37,6 +37,9 @@ def command_line_parser():
         "--print-messages", dest="nids", metavar="nid", type=int,
         nargs="+", default=None,
         help="print messages content")
+    parser.add_argument(
+        "--print-stat-messages", metavar="out_file", type=str, default=None,
+        help="file to print all messages for later NLP")
     parser.add_argument(
         "--with-binary", action="store_true", default=False,
         help="process binaries")
@@ -115,8 +118,7 @@ def print_messages(ndb, params):
         bnm = path.basename(params.pstfile).split(".")[0]
         dnm = path.dirname(params.pstfile)
         if params.save:
-            out = codecs.open(path.join(dnm, "%s_%d.txt" % (bnm, nid)),
-                              "w+", "UTF-8")
+            out = codecs.open(path.join(dnm, "%s_%d.txt" % (bnm, nid)), "w+", "UTF-8")
         else:
             out = stdout
         if params.save or params.with_attachments:
@@ -189,6 +191,29 @@ def print_messages(ndb, params):
                 pass  # not empty
 
 
+def print_stat_messages(ndb, params):
+    if params.print_stat_messages is None:
+        return
+
+    progress = 0
+    with codecs.open(params.print_stat_messages, "w+", "UTF-8") as out:
+        for nx in ndb._nbt:
+            if nx['typeCode'] != 'NORMAL_MESSAGE':
+                continue
+            pc = PropertyContext(ndb, nx['nid'])
+            print('-------BEGIN MESSAGE HEADER-------', file=out)
+            print(nx['nid'], file=out)
+            print(pc.get_value('MessageDeliveryTime'), file=out)
+            print(pc.get_value('ConversationTopic'), file=out)
+            print('-------BEGIN MESSAGE BODY-------', file=out)
+            print(pc.get_value('Body'), file=out)
+            print('-------END MESSAGE BODY-------', file=out)
+            progress += 1
+            if progress % 10 == 0:
+                print('.', file=stderr, end='', flush=True)
+    print(file=stderr, end='')
+
+
 class PstBox:
     def __init__(self, file_name):
         self.file_name = file_name
@@ -223,6 +248,7 @@ def command_line(inp_args=None):
         with NDBLayer(args.pstfile) as ndb:
             list_content(ndb, args)
             print_messages(ndb, args)
+            print_stat_messages(ndb, args)
 
     if args.profile:
         run_profile(run, args)
