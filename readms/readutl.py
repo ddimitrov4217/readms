@@ -15,7 +15,7 @@ def dump_hex(buf, lx=16, out=None):
         if bn % lx == 0:
             out.write("%08X " % bn)
         out.write("%02X " % x)
-        if x < 128 and x >= 32:
+        if 32 <= x < 128:
             b1.append(chr(x))
         else:
             b1.append(".")

@@ -68,6 +68,8 @@ def read_ndb_page(fin, bref):
     return dict(meta=meta, entries=entries)
 
 
+# pylint: disable=too-many-instance-attributes
+# Всички атрибути са необходими за описанието на NDB.
 class NDBLayer:
     def __init__(self, file_name, index_dir=None):
         self._fin = open(file_name, "rb")

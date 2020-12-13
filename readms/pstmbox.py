@@ -13,13 +13,13 @@ import email
 import email.header as email_header
 import re
 import logging
-import click
 
 from readms.readpst import NDBLayer, PropertyContext
 
 log = logging.getLogger(__name__)
 
-
+# pylint: disable=too-many-instance-attributes
+# Всички атрибути са необхдими за организирането на cache.
 class MboxCacheEntry:
     """Прочетен архив с поща."""
 
@@ -392,6 +392,8 @@ class MboxCacheEntry:
             for search_word in search_words:
                 found_set = set()
                 for word, nids in index.items():
+                    # pylint: disable=too-many-boolean-expressions
+                    # проверката е по типовете търсене и съответстващия критерий
                     if (match_mode == 1 and word.startswith(search_word) or
                             match_mode == 2 and search_word in word or
                             match_mode == 3 and word == search_word):
@@ -449,6 +451,9 @@ class HiddenField:
         self._save()
 
 
+# pylint: disable=too-few-public-methods
+# Това е идеята на този клас: създава се подходящ достъп до съдържанието.
+# Няма нужда от повече методи, освен извличане на съдържанието.
 class MimeData:
     """Данни от smime attachments"""
 
