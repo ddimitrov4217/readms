@@ -13,6 +13,7 @@ from io import StringIO
 
 from datetime import datetime, timedelta
 from struct import unpack_from as unpackb, calcsize
+from pytz import timezone, utc as UTC
 from readms.readutl import dump_hex, decode_permute, ulong_from_tuple, UnpackDesc
 from readms.metapst import (
     page_types, nid_types, nid_internal_types,
@@ -481,7 +482,8 @@ class PropertyValue:
         stime = unpackb("<Q", pbuf)[0]//10000000  # seconds
         days, seconds = divmod(stime, 24*60*60)
         delta = timedelta(days=days, seconds=seconds)
-        return datetime(year=1601, month=1, day=1) + delta
+        result = datetime(year=1601, month=1, day=1, tzinfo=UTC) + delta
+        return result.astimezone(timezone("Europe/Sofia"))
 
     @classmethod
     def _read_PtypMultipleString(cls, pbuf):
