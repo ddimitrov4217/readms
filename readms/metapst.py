@@ -516,6 +516,9 @@ def get_hnid_type(hnid):
 
 
 def parse_ms_oxprops(_silent=False):
+    # pylint: disable=too-many-statements
+    # Колко да е кратко парсването на файла зс докумнетацията на MS и получаване на
+    # дефиницията на атрибутите - ID, код име, описание, тип на стойността и други
     from pkgutil import get_data
 
     def read_events():
@@ -564,7 +567,11 @@ def parse_ms_oxprops(_silent=False):
     for etag, info in read_events():
         if etag == "PROP":
             name, = info
-            prop = dict(name=name.replace("PidTag", ""))
+
+            for prefix_ in ('PidTag', '-PidLid', '-PidName'):
+                name = name.replace(prefix_, '')
+
+            prop = dict(name=name)
             parsed_prop_types.append(prop)
         if etag == "DESC":
             att, desc = info
