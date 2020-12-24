@@ -485,8 +485,19 @@ class PropertyValue:
 
     @classmethod
     def _read_PtypMultipleString(cls, pbuf):
-        # TODO вероятно има описание на начина на четене
-        raise NotImplementedError
+        n_strings = unpackb("<L", pbuf)[0]
+        start_strings = [unpackb("<L", pbuf[4*be+4:])[0] for be in range(n_strings)]
+
+        result = []
+        for ix_ in range(n_strings):
+            start_s = start_strings[ix_]
+            if ix_ < n_strings - 1:
+                end_s = start_strings[ix_+1]
+                value = cls._read_String(pbuf[start_s:end_s])
+            else:
+                value = cls._read_String(pbuf[start_s:])
+            result.append(value)
+        return result
 
     def get_value(self):
         return self._read(self._buf)
