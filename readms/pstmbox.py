@@ -149,8 +149,7 @@ class MboxCacheEntry:
         result = []
         for nid, snid in self._mbox.list_nids("ATTACHMENT", mnid):
             pa = PropertyContext(self._mbox, nid, snid)
-            att_name = pa.alt_name("AttachLongFilename", "DisplayName",
-                                   "AttachFilename")
+            att_name = pa.alt_name("AttachLongFilename", "DisplayName", "AttachFilename")
             if att_name is not None:
                 filename = pa.get_value(att_name)
             else:
@@ -167,8 +166,7 @@ class MboxCacheEntry:
 
     def get_attachment(self, nid, anid):
         pa = PropertyContext(self._mbox, nid, anid)
-        att_name = pa.alt_name("AttachLongFilename", "DisplayName",
-                               "AttachFilename")
+        att_name = pa.alt_name("AttachLongFilename", "DisplayName", "AttachFilename")
         if att_name is not None:
             filename = pa.get_value(att_name)
         else:
@@ -216,6 +214,27 @@ class MboxCacheEntry:
             return topic_map
 
         with open(topic_idx, "rb") as fin:
+            return pickle.load(fin)
+
+    def categories_index(self):
+        name, _ex = os.path.splitext(os.path.basename(self._ifile))
+        cat_idx = "%s_categories.idx" % name
+        cat_idx = os.path.join(self._index_dir, cat_idx)
+        if not os.path.exists(cat_idx):
+            start_ = time()
+            log.info("create categories map")
+            cat_nids = []
+            for nid, _nidp in self._message:
+                pc = PropertyContext(self._mbox, nid)
+                kw = pc.get_value("Keywords")
+                if kw is not None:
+                    cat_nids.append(nid)
+
+            with open(cat_idx, "wb") as fout:
+                pickle.dump(cat_nids, fout, pickle.HIGHEST_PROTOCOL)
+            log.info("done in {0:,.3f} sec".format(time()-start_))
+
+        with open(cat_idx, "rb") as fin:
             return pickle.load(fin)
 
     def simple_search(self, patterns):
@@ -422,6 +441,11 @@ class MboxCacheEntry:
 
     def search_tags(self):
         self._search_match_nids = self._tags_nid.keys()
+        self._index_content()
+        return {'nid': self._message[0][1]} if len(self._message) > 0 else None
+
+    def search_categories(self):
+        self._search_match_nids = self.categories_index()
         self._index_content()
         return {'nid': self._message[0][1]} if len(self._message) > 0 else None
 
