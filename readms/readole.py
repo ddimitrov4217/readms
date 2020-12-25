@@ -2,7 +2,7 @@
 # vim:ft=python:et:ts=4:sw=4:ai
 
 from os import path
-from io import StringIO
+from collections import namedtuple
 import re
 import logging
 import logging.config
@@ -11,7 +11,8 @@ from struct import unpack_from as unpackb
 from codecs import decode
 from readms.readutl import dump_hex
 
-logging.config.fileConfig(path.join(path.dirname(__file__), 'logging.ini'))
+if __name__ == '__main__':
+    logging.config.fileConfig(path.join(path.dirname(__file__), 'logging.ini'))
 log = logging.getLogger(__name__)
 
 # Описанието на формата се намира на
@@ -34,6 +35,7 @@ class OLE:
         self._read_header()
         self._read_fat_map()
         self._read_dir()
+        self._build_dire_hier()
         # XXX self._read_ssat()
         return self
 
@@ -170,25 +172,59 @@ class OLE:
             szrem -= self._lssize
         return memoryview(out)
 
+    Sibling = namedtuple('Sibling', ['left', 'right', 'child'])
+
     class DIRE:
         # 2.6 Compound File Directory Sectors
-        def __init__(self, buf, pos, id):
-            self._id = id
+        def __init__(self, buf, pos, entry_id):
+            self._id = entry_id
             name_sz = unpackb("<h", buf, pos+64)[0]
             self._name = decode(buf[pos:pos+name_sz], "UTF16")
             self._type = unpackb("<1B", buf, pos+66)[0]
             log.debug('DIRE [%d] type/name: %d: %s', self._id, self._type, self._name)
 
-            # XXX Тези може би са излишни за описанието на структурата
-            self._left_sib  = unpackb("<l", buf, pos+68)[0]
-            self._right_sib = unpackb("<l", buf, pos+72)[0]
-            self._child_id  = unpackb("<l", buf, pos+76)[0]
-            log.debug('  Siblings: left/ right/ child: %d; %d; %d',
-                      self._left_sib, self._right_sib, self._child_id)
+            self._sibs = OLE.Sibling(left=unpackb("<l", buf, pos+68)[0],
+                                     right=unpackb("<l", buf, pos+72)[0],
+                                     child=unpackb("<l", buf, pos+76)[0])
+            log.debug('  Neighbours: %s', self._sibs)
 
             self._fsid = unpackb("<l", buf, pos+116)[0]  # Starting Sector Location
             self._size = unpackb("<l", buf, pos+120)[0]  # Stream Size
             log.debug('  Starting Sector Location: %d; size: %d', self._fsid, self._size)
+
+    def _build_dire_hier(self):
+        sibs = [x._sibs for x in self._dire]
+        childrens = [[] for _x in sibs]
+        parents = [None for _x in sibs]
+
+        def proc_sibs(sib, ix, where):
+            parents[sib] = parents[ix]
+            ixx = childrens[parents[ix]].index(ix)
+            childrens[parents[ix]].insert(ixx+where, sib)
+            trip(sib)
+
+        def trip(ix):
+            sib = sibs[ix]
+            if sib.child > 0:
+                childrens[ix].append(sib.child)
+                parents[sib.child] = ix
+                trip(sib.child)
+            if sib.left > 0:
+                proc_sibs(sib.left, ix, 0)
+            if sib.right > 0:
+                proc_sibs(sib.right, ix, 1)
+
+        trip(0)
+        # log.debug('%s', childrens)
+        self._dire_hier = childrens
+
+    def dire_trip(self, start=0):
+        def trip(ix, level):
+            yield level, self._dire[ix]
+            for cix in self._dire_hier[ix]:
+                for lx, dire in trip(cix, level+1):
+                    yield lx, dire
+        return trip(start, level=0)
 
     def find_dire(self, dire_pattern):
         ma = re.compile(dire_pattern)
@@ -203,25 +239,27 @@ class OLE:
         return self._read_ss(dire)
 
 
-def test_ole(file, with_dire=True, verbose=True):
-    def test_read(ole, stream_name, maxlen=512):
+def test_ole(file):
+    with OLE(file) as _ole:
+        pass
+
+
+def test_dire(file, start=0):
+    with OLE(file) as ole:
+        for level, dire in ole.dire_trip(start=start):
+            print('%s[%d] %s' % (' '*2*level, dire._id, dire._name))
+
+
+def test_content(file, maxlen=512):
+    def test_read(ole, stream_name, maxlen=maxlen):
         dire = ole.find_dire(stream_name)
         obuf = ole.read_dire(dire)
         print("%s, len=%d" % (stream_name, len(obuf)))
         dump_hex(obuf[:maxlen])
 
-    with OLE(file) as ole:
-        if with_dire:
-            for de in ole._dire:
-                print(de)
-                if verbose:
-                    test_read(ole, de._name)
-
-
 if __name__ == '__main__':
     from sys import argv
-    # tx_ = int(argv[1]) if len(argv) > 1 else 0
-    # cx_ = int(argv[2]) if len(argv) > 2 else 0
-    # [test_ole_1,
-    #  lambda x: test_read_1(x, _debug=True), ][tx_](cx_)
-    test_ole(argv[1], with_dire=False)
+    log.setLevel('DEBUG')
+    file_name_ = argv[1]
+    # test_ole(file_name)
+    test_dire(file_name_, start=0)
