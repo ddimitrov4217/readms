@@ -6,75 +6,10 @@ import re
 from struct import unpack_from as unpackb
 from codecs import decode
 from readms.readutl import dump_hex
-# from readms.metaxl import biff_rec_name
 
-# Всички цитати и точки, които се използва по-долу са от „OpenOffice.org's Documentation of
-# the Microsoft Compound Document File Format“, който може да се свали от
-# http://sc.openoffice.org/compdocfileformat.pdf
-
-# ============================================================================================
-# § 4.1 Compound Document Header Contents
-# ============================================================================================
-#  0   8 Compound document file identifier: D0H CFH 11H E0H A1H B1H 1AH E1H
-#  8  16 Unique identifier (UID) of this file (not of interest in the following, may be all 0)
-# 24   2 Revision number of the file format (most used is 003EH)
-# 26   2 Version number of the file format (most used is 0003H)
-# 28   2 Byte order identifier (§4.2): FEH FFH = Little-Endian FFH FEH = Big-Endian
-# 30   2 Size of a sector in the compound document file (§3.1) in power-of-two (ssz),
-#        real sector size is sec_size = 2ssz bytes (minimum value is 7 which means 128 bytes,
-#        most used value is 9 which means 512 bytes)
-# 32   2 Size of a short-sector in the short-stream container stream (§6.1) in power-of-two
-#        (sssz), real short-sector size is short_sec_size = 2sssz bytes (maximum value is
-#        sector size ssz, see above, most used value is 6 which means 64 bytes)
-# 34  10 Not used
-# 44   4 Total number of sectors used for the sector allocation table (§5.2)
-# 48   4 SecID of first sector of the directory stream (§7)
-# 52   4 Not used
-# 56   4 Minimum size of a standard stream (in bytes, minimum allowed and most used size is
-#        4096 bytes), streams with an actual size smaller than (and not equal to) this value
-#        are stored as short-streams (§6)
-# 60   4 SecID of first sector of the short-sector allocation table (§6.2), or –2 (End Of
-#        Chain SecID, §3.1) if not extant
-# 64   4 Total number of sectors used for the short-sector allocation table (§6.2)
-# 68   4 SecID of first sector of the master sector allocation table (§5.1), or –2 (End Of
-#        Chain SecID, §3.1) if no additional sectors used
-# 72   4 Total number of sectors used for the master sector allocation table (§5.1)
-# 76 436 First part of the master sector allocation table (§5.1) containing 109 SecIDs
-
-# ============================================================================================
-# § 7.2.1 Directory Entry Structure
-# ============================================================================================
-#   0 64 Character array of the name of the entry, always 16-bit Unicode characters, with
-#        trailing zero character (results in a maximum name length of 31 characters)
-#  64  2 Size of the used area of the character buffer of the name (notcharacter count),
-#        including the trailing zero character
-#        (e.g. 12 for a name with 5 characters: (5+1)∙2 = 12)
-#  66  1 Type of the entry:
-#             00H = Empty        03H = LockBytes (unknown)
-#             01H = User storage 04H = Property (unknown)
-#             02H = User stream  05H = Root storage
-#  67  1 Node colour of the entry: 00H = Red 01H = Black
-#  68  4 DirID of the left child node inside the red-black tree of all direct members of
-#        the parent storage (if this entry is a user storage or stream, §7.1), –1 if there is
-#        no left child
-#  72  4 DirID of the right child node inside the red-black tree of all direct members of the
-#        parent storage (if this entry is a user storage or stream, §7.1), –1 if there is no
-#        right child
-#  76  4 DirID of the root node entry of the red-black tree of all storage members (if this
-#        entry is a storage, §7.1), –1 otherwise
-#  80 16 Unique identifier, if this is a storage (not of interest, may be all 0)
-#  96  4 User flags (not of interest in the following, may be all 0)
-# 100  8 Time stamp of creation of this entry (§7.2.3). Most implementations do not write a
-#        valid time stamp, but fill up this space with zero bytes.
-# 108  8 Time stamp of last modification of this entry (§7.2.3). Most implementations do not
-#        write a valid time stamp, but fill up this space with zero bytes.
-# 116  4 SecID of first sector or short-sector, if this entry refers to a stream (§7.2.2),
-#        SecID of first sector of the short-stream container stream (§6.1), if this is the
-#        root storage entry, 0 otherwise
-# 120  4 Total stream size in bytes, if this entry refers to a stream (§7.2.2), total size of
-#        the shortstream container stream (§6.1), if this is the root storage, 0 otherwise
-# 124  4 Not used
-
+# Описанието на формата се намира на
+# https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-cfb/
+# https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-CFB/[MS-CFB].pdf
 
 class OLE:
     def __init__(self, file_name):
@@ -186,7 +121,7 @@ class OLE:
         if not isinstance(dire, OLE.DIRE):
             assert dire <= len(self._dire)
             dire = self._dire[dire]
-        assert(dire._size < self._max_ssize)
+        assert dire._size < self._max_ssize
         # FIXME не е оптимално
         b0 = self._read_ls(0, True)
         out = bytearray()
@@ -245,33 +180,10 @@ class OLE:
     def read_dire(self, dire):
         if dire._size >= self._max_ssize:
             return self._read_ls(dire)
-        else:
-            return self._read_ss(dire)
+        return self._read_ss(dire)
 
 
-# def read_workbook(file_name):
-#     with OLE(file_name) as ole:
-#         dire = ole.find_dire("Workbook")
-#         buf = ole.read_dire(dire)
-#         pos = 0
-#         lex = len(buf)
-#         while pos < lex:
-#             rtag, size = unpackb("<HH", buf, pos)
-#             obuf = buf[(pos+4):(pos+4+size)]
-#             yield (biff_rec_name(rtag), obuf)
-#             pos += size + 4
-
-
-# def test_file(cx=0):
-#     from os import path
-#     fnm = (u"test.xls", u"131352367_2014_Q4.xls", u"FCL_грешни_МИС.xls",
-#            u"2015 04 09 FCL Migration.xls",
-#            path.join("S:", "USI", "SHARED", "ALL", "ISIS-2", "IF",
-#                      "07.04.2015", "IF_instrumens_2014_part1.xls"))
-#     return fnm[cx]
-
-
-def test_ole(file):
+def test_ole(file, with_dire=True, verbose=True):
     def test_read(ole, stream_name, maxlen=512):
         dire = ole.find_dire(stream_name)
         obuf = ole.read_dire(dire)
@@ -280,27 +192,11 @@ def test_ole(file):
 
     with OLE(file) as ole:
         print(ole)
-        for de in ole._dire:
-            print(de)
-            test_read(ole, de._name)
-        # print(ole)
-        # print(dir(ole))
-        # test_read(ole, "Workbook")
-        # test_read(ole, ".DocumentSummaryInformation")
-        # test_read(ole, ".SummaryInformation")
-        # test_read(ole, ".CompObj")
-        # test_read(ole, ".Ole")
-        # test_read(ole, '__substg1.0_101B0102')
-        # test_read(ole, '__nameid_version1.0')
-
-
-# def test_read_1(cx=1, _debug=False):
-#     fnm = test_file(cx)
-#     for (rtag, buf,) in read_workbook(fnm):
-#         if _debug:
-#             print("%4d %s" % (len(buf), rtag,))
-#             if len(buf) > 0:
-#                 dump_hex(buf)
+        if with_dire:
+            for de in ole._dire:
+                print(de)
+                if verbose:
+                    test_read(ole, de._name)
 
 
 if __name__ == '__main__':
