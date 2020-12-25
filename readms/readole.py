@@ -36,7 +36,7 @@ class OLE:
         self._read_fat_map()
         self._read_dir()
         self._build_dire_hier()
-        # XXX self._read_ssat()
+        self._read_minifat_map()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -94,16 +94,17 @@ class OLE:
             sc = unpackb("<%dl" % (self._lssize/4), b0, 0)
             self._fat_map.extend(sc)
         self._fat_map = tuple(self._fat_map)
-        log.debug('FATs map: %s', self._fat_map)
+        # log.debug('FATs map: %s', self._fat_map)
 
-    def _read_ssat(self):
-        self._ssat_list = []
-        for sid in self._chain_sat(self._ssat_fsid):
+    def _read_minifat_map(self):
+        self._minifat_map = []
+        for sid in self._chain_fat(self._mfat_fsid):
             self._seek_sector(sid)
             b0 = self._fin.read(self._lssize)
             sc = unpackb("<%dl" % (self._lssize/4,), b0, 0)
-            self._ssat_list.extend(sc)
-        self._ssat_list = tuple(self._ssat_list)
+            self._minifat_map.extend(sc)
+        self._minifat_map = tuple(self._minifat_map)
+        # log.debug('Mini FATs map: %s', self._minifat_map)
 
     def _read_dir(self):
         self._dire = []
@@ -121,43 +122,41 @@ class OLE:
                         self._root = de
                 sd += 128
                 seq_id += 1
-        # sectors chain for short size stream
-        # XXX self._sss_chain = self._chain_sat(self._root._fsid)
 
     def _seek_sector(self, sid):
         apos = 512 + sid * self._lssize
         self._fin.seek(apos, 0)
 
     def _chain_fat(self, sid):
-        sec_list = []
+        sector_list = []
         while sid >= 0:
-            sec_list.append(sid)
+            sector_list.append(sid)
             sid = self._fat_map[sid]
-        return sec_list
+        return sector_list
 
-    def _chain_ssat(self, sid):
-        sec_list = []
+    def _chain_minifat(self, sid):
+        sector_list = []
         while sid >= 0:
-            sec_list.append(sid)
-            sid = self._ssat_list[sid]
-        return sec_list
+            sector_list.append(sid)
+            sid = self._minifat_map[sid]
+        return sector_list
 
-    def _read_ss(self, dire):
+    def _read_by_minifat(self, dire):
         if not isinstance(dire, OLE.DIRE):
             assert dire <= len(self._dire)
             dire = self._dire[dire]
         assert dire._size < self._max_ssize
         # FIXME не е оптимално
-        b0 = self._read_ls(0, True)
+        b0 = self._read_by_fat(0, True)
         out = bytearray()
         szrem = dire._size
-        for sid in self._chain_ssat(dire._fsid):
+        for sid in self._chain_minifat(dire._fsid):
             sp = self._sssize * sid
             out.extend(b0[sp:sp+min(szrem, self._sssize)])
             szrem -= self._sssize
         return memoryview(out)
 
-    def _read_ls(self, dire, root=False):
+    def _read_by_fat(self, dire, root=False):
         if not isinstance(dire, OLE.DIRE):
             assert dire <= len(self._dire) or root
             dire = self._dire[dire]
@@ -165,7 +164,7 @@ class OLE:
         # FIXME прочита всичко в паметта
         out = bytearray()
         szrem = dire._size
-        for sid in self._chain_sat(dire._fsid):
+        for sid in self._chain_fat(dire._fsid):
             self._seek_sector(sid)
             b0 = self._fin.read(min(szrem, self._lssize))
             out.extend(b0)
@@ -176,6 +175,9 @@ class OLE:
 
     class DIRE:
         # 2.6 Compound File Directory Sectors
+        # pylint: disable=too-few-public-methods
+        # Това е вътрешен, помощен клас с описание на directory entry
+
         def __init__(self, buf, pos, entry_id):
             self._id = entry_id
             name_sz = unpackb("<h", buf, pos+64)[0]
@@ -226,17 +228,17 @@ class OLE:
                     yield lx, dire
         return trip(start, level=0)
 
-    def find_dire(self, dire_pattern):
+    def dire_find(self, dire_pattern):
         ma = re.compile(dire_pattern)
         for de in self._dire:
             if ma.match(de._name):
                 return de
         raise KeyError(dire_pattern)
 
-    def read_dire(self, dire):
-        if dire._size >= self._max_ssize:
-            return self._read_ls(dire)
-        return self._read_ss(dire)
+    def dire_read(self, dire):
+        if dire._size >= self._max_ssize or dire._id == 0:
+            return self._read_by_fat(dire, root=dire._id==0)
+        return self._read_by_minifat(dire)
 
 
 def test_ole(file):
@@ -252,14 +254,20 @@ def test_dire(file, start=0):
 
 def test_content(file, maxlen=512):
     def test_read(ole, stream_name, maxlen=maxlen):
-        dire = ole.find_dire(stream_name)
-        obuf = ole.read_dire(dire)
+        dire = ole.dire_find(stream_name)
+        obuf = ole.dire_read(dire)
         print("%s, len=%d" % (stream_name, len(obuf)))
         dump_hex(obuf[:maxlen])
+
+    with OLE(file) as ole:
+        print()
+        for _level, dire in ole.dire_trip(start=0):
+            test_read(ole, dire._name)
 
 if __name__ == '__main__':
     from sys import argv
     log.setLevel('DEBUG')
     file_name_ = argv[1]
-    # test_ole(file_name)
-    test_dire(file_name_, start=0)
+    # test_ole(file_name_)
+    # test_dire(file_name_, start=0)
+    test_content(file_name_)
