@@ -127,19 +127,19 @@ class OLE:
         apos = 512 + sid * self._lssize
         self._fin.seek(apos, 0)
 
-    def _chain_fat(self, sid):
+    @staticmethod
+    def _chain_sectors(sid, fat_map):
         sector_list = []
         while sid >= 0:
             sector_list.append(sid)
-            sid = self._fat_map[sid]
+            sid = fat_map[sid]
         return sector_list
 
+    def _chain_fat(self, sid):
+        return OLE._chain_sectors(sid, self._fat_map)
+
     def _chain_minifat(self, sid):
-        sector_list = []
-        while sid >= 0:
-            sector_list.append(sid)
-            sid = self._minifat_map[sid]
-        return sector_list
+        return OLE._chain_sectors(sid, self._minifat_map)
 
     def _read_by_minifat(self, dire):
         if not isinstance(dire, OLE.DIRE):
