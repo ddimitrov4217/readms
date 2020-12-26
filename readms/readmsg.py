@@ -1,8 +1,10 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
+from os import path
 import re
 from collections import namedtuple
+from struct import unpack_from as unpackb
 from readms.readole import OLE
 from readms.readutl import dump_hex
 from readms.readpst import PropertyValue
@@ -19,11 +21,15 @@ prop_name_pattern = re.compile(
 
 Property = namedtuple('Property', ['value', 'prop'])
 
+def enrich_prop(tag):
+    prop = [dict(propTag=tag)]
+    enrich_prop_code(prop)
+    return prop[0]
+
+
 def read_property(ole, dire):
     found = prop_name_pattern.search(dire.name)
-    prop = [ dict(propTag=int(found.group('code'), 16)) ]
-    enrich_prop_code(prop)
-    prop = prop[0]
+    prop = enrich_prop(int(found.group('code'), 16))
     ptype = int(found.group('type'), 16)
     if ptype == 0x101F:
         # TODO Обслужване на multi-value стойности
@@ -79,8 +85,33 @@ def test_read_message(file):
         print(pc.value.get_value())
 
 
+def test_read__properties_block(file):
+    with OLE(file) as ole:
+        for _level, dire in ole.dire_trip(start=0):
+            if not dire.name.startswith('__properties_version1.0'):
+                continue
+            pdire = ole.dire_parent(dire.id)
+            if pdire.name.startswith('Root'):
+                data_offset = 32
+            if pdire.name.startswith('__attach') or pdire.name.startswith('__recip'):
+                data_offset = 8
+
+            obuf = ole.dire_read(dire)
+            print("%s, len=%d, %s" % (dire.name, len(obuf), pdire.name))
+
+            # 2.4.2.1 Fixed Length Property Entry
+            for pos_ in range(data_offset, len(obuf)-data_offset, 16):
+                tag = list(unpackb("<HH", obuf, pos_)) # Property Tag
+                # за тези с променлива дължина, стойността е размера
+                ttype = 0x0003 if tag[0] in (0x101F, 0x001F) else tag[0]
+                pc = PropertyValue(ttype, obuf[pos_+8:pos_+16])
+                tcode = enrich_prop(tag[1])['propCode']
+                print('  %4d : 0x%04X; %30s : %s' % (pos_, tag[0], tcode, pc.get_value()))
+
+
 if __name__ == '__main__':
     from sys import argv
     file_name_ = argv[1]
     # test_content(file_name_)
-    test_read_message(file_name_)
+    # test_read_message(file_name_)
+    test_read__properties_block(file_name_)
