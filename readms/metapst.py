@@ -568,7 +568,7 @@ def parse_ms_oxprops(_silent=False):
         if etag == "PROP":
             name, = info
 
-            for prefix_ in ('PidTag', '-PidLid', '-PidName'):
+            for prefix_ in ('PidTag', 'PidLid', 'PidName'):
                 name = name.replace(prefix_, '')
 
             prop = dict(name=name)
