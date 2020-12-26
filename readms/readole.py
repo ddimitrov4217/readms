@@ -254,8 +254,18 @@ def test_ole(file):
 
 def test_dire(file, start=0):
     with OLE(file) as ole:
+        trip_list = []
+        max_level = 0
+
         for level, dire in ole.dire_trip(start=start):
-            print('%s[%d] %s' % (' '*2*level, dire._id, dire._name))
+            trip_list.append((level, dire))
+            if max_level < level:
+                max_level = level
+
+        for level, dire in trip_list:
+            print('%s[%3d] %-32s%s %7d (%s)' %
+                  (' '*2*level, dire.id, dire.name, ' '*2*(max_level-level),
+                   dire._size, dire.type_name))
 
 
 def test_content(file, maxlen=512):
