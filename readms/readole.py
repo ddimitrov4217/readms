@@ -226,8 +226,13 @@ class OLE:
         # log.debug('%s', childrens)
         self._dire_hier = childrens
 
-    def dire_trip(self, start=0):
+    def dire_trip(self, start=0, skip=None):
+        if skip is not None:
+            skip = re.compile(skip)
+
         def trip(ix, level):
+            if skip is not None and skip.search(self._dire[ix].name):
+                return
             yield level, self._dire[ix]
             for cix in self._dire_hier[ix]:
                 for lx, dire in trip(cix, level+1):
