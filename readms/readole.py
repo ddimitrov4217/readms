@@ -239,6 +239,9 @@ class OLE:
                     yield lx, dire
         return trip(start, level=0)
 
+    def dire_childs(self, dire_id):
+        return [self._dire[ix_] for ix_ in self._dire_hier[dire_id]]
+
     def dire_find(self, dire_pattern):
         ma = re.compile(dire_pattern)
         for de in self._dire:
