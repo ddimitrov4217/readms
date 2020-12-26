@@ -184,11 +184,12 @@ class OLE:
         # Това е вътрешен, помощен клас с описание на directory entry
 
         def __init__(self, buf, pos, entry_id):
-            self._id = entry_id
+            self.id = entry_id
             name_sz = unpackb("<h", buf, pos+64)[0]
-            self._name = decode(buf[pos:pos+name_sz], "UTF16")
+            self.name = decode(buf[pos:pos+name_sz], "UTF16")
             self._type = unpackb("<1B", buf, pos+66)[0]
-            log.debug('DIRE [%d] type/name: %d: %s', self._id, self._type, self._name)
+            self.type_name = { 0: 'Unknown', 1: 'Storage', 2: 'Stream', 5: 'Root' }[self._type]
+            log.debug('DIRE [%d] type/name: %d: %s', self.id, self._type, self.name)
 
             self._sibs = OLE.Sibling(left=unpackb("<l", buf, pos+68)[0],
                                      right=unpackb("<l", buf, pos+72)[0],
@@ -236,13 +237,13 @@ class OLE:
     def dire_find(self, dire_pattern):
         ma = re.compile(dire_pattern)
         for de in self._dire:
-            if ma.match(de._name):
+            if ma.match(de.name):
                 return de
         raise KeyError(dire_pattern)
 
     def dire_read(self, dire):
-        if dire._size >= self._max_ssize or dire._id == 0:
-            return self._read_by_fat(dire, root=dire._id==0)
+        if dire._size >= self._max_ssize or dire.id == 0:
+            return self._read_by_fat(dire, root=dire.id==0)
         return self._read_by_minifat(dire)
 
 
@@ -267,12 +268,12 @@ def test_content(file, maxlen=512):
     with OLE(file) as ole:
         print()
         for _level, dire in ole.dire_trip(start=0):
-            test_read(ole, dire._name)
+            test_read(ole, dire.name)
 
 if __name__ == '__main__':
     from sys import argv
     log.setLevel('DEBUG')
     file_name_ = argv[1]
     # test_ole(file_name_)
-    # test_dire(file_name_, start=0)
-    test_content(file_name_)
+    test_dire(file_name_, start=0)
+    # test_content(file_name_)
