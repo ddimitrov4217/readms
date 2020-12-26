@@ -225,6 +225,7 @@ class OLE:
         trip(0)
         # log.debug('%s', childrens)
         self._dire_hier = childrens
+        self._dire_hier_parents = parents
 
     def dire_trip(self, start=0, skip=None):
         if skip is not None:
@@ -241,6 +242,9 @@ class OLE:
 
     def dire_childs(self, dire_id):
         return [self._dire[ix_] for ix_ in self._dire_hier[dire_id]]
+
+    def dire_parent(self, dire_id):
+        return self._dire[self._dire_hier_parents[dire_id]]
 
     def dire_find(self, dire_pattern):
         ma = re.compile(dire_pattern)
