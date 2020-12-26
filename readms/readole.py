@@ -141,12 +141,17 @@ class OLE:
     def _chain_minifat(self, sid):
         return OLE._chain_sectors(sid, self._minifat_map)
 
+    # Двата начина на четене (по FAT и Mini-FAT) прочитат всичко в паметта.
+    # Това може да не изглежда много оптимално и да е добре да се направят и stream функции.
+    # Но в контекста на MS бинарните формати почти винаги се налага да се прочете всичко тъй
+    # като за обхождането на структурите се налага всичко да се достъпва по индекси в паметта.
+
     def _read_by_minifat(self, dire):
         if not isinstance(dire, OLE.DIRE):
             assert dire <= len(self._dire)
             dire = self._dire[dire]
         assert dire._size < self._max_ssize
-        # FIXME не е оптимално
+
         b0 = self._read_by_fat(0, True)
         out = bytearray()
         szrem = dire._size
@@ -161,7 +166,7 @@ class OLE:
             assert dire <= len(self._dire) or root
             dire = self._dire[dire]
         assert dire._size >= self._max_ssize or root
-        # FIXME прочита всичко в паметта
+
         out = bytearray()
         szrem = dire._size
         for sid in self._chain_fat(dire._fsid):
