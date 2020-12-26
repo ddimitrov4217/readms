@@ -1,7 +1,6 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-from os import path
 import re
 from collections import namedtuple
 from struct import unpack_from as unpackb
@@ -37,13 +36,19 @@ def read_property(ole, dire):
     return Property(value=PropertyValue(ptype, ole.dire_read(dire)), prop=prop)
 
 
-def load_properties(ole, dires, target):
-    for dire in dires:
-        if not prop_name_pattern.match(dire.name):
-            continue
-        pc = read_property(ole, dire)
-        if pc is not None:
-            target.append(pc)
+def load_properties(ole, dire, target):
+    # TODO атрибути с фиксирана дължина
+
+    # атрибути с променлива дължина
+    for dire_ in ole.dire_childs(dire.id):
+        found = prop_name_pattern.search(dire_.name)
+        if found is not None:
+            prop = enrich_prop(int(found.group('code'), 16))
+            ptype = int(found.group('type'), 16)
+            if ptype & 0x1000:
+                continue  # TODO Обслужване на multi-value стойности
+            pv = PropertyValue(ptype, ole.dire_read(dire_))
+            target.append(Property(value=pv, prop=prop))
 
 
 class Attachment:
@@ -65,10 +70,11 @@ class Message:
         self.recipients = []
 
         with OLE(file) as ole:
-            load_properties(ole, ole.dire_childs(0), self.properties)
+            load_properties(ole, ole.root, self.properties)
             # TODO Приложени файлове __attach_version1.0
             # TODO Получатели __recip_version1.0
             # TODO Още атрибути (именувани) от __nameid_version1.0
+
 
 def test_content(file):
     with OLE(file) as ole:
@@ -113,5 +119,5 @@ if __name__ == '__main__':
     from sys import argv
     file_name_ = argv[1]
     # test_content(file_name_)
-    # test_read_message(file_name_)
-    test_read__properties_block(file_name_)
+    test_read_message(file_name_)
+    # test_read__properties_block(file_name_)

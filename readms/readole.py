@@ -119,7 +119,7 @@ class OLE:
                     de = OLE.DIRE(b0, sd, seq_id)
                     self._dire.append(de)
                     if ty == 0x05:
-                        self._root = de
+                        self.root = de
                 sd += 128
                 seq_id += 1
 
