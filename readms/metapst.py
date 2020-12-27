@@ -515,7 +515,7 @@ def get_hnid_type(hnid):
     return "HID" if hnid & 0x1F == 0 else "NID"
 
 
-def parse_ms_oxprops(_silent=False):
+def parse_ms_oxprops(_silent=False, _maintain=False):
     # pylint: disable=too-many-statements
     # Колко да е кратко парсването на файла зс докумнетацията на MS и получаване на
     # дефиницията на атрибутите - ID, код име, описание, тип на стойността и други
@@ -564,12 +564,20 @@ def parse_ms_oxprops(_silent=False):
 
     parsed_prop_types = []
     result = {}
+    prop = None
     for etag, info in read_events():
         if etag == "PROP":
             name, = info
 
             for prefix_ in ('PidTag', 'PidLid', 'PidName'):
                 name = name.replace(prefix_, '')
+
+            if _maintain and prop is not None:
+                for px_ in parsed_prop_types:
+                    if px_['name'] == name:
+                        print('Name already defined: [%s] dup [%s]' % (name, info[0]))
+                        print('  %s\n' % px_)
+                        continue
 
             prop = dict(name=name)
             parsed_prop_types.append(prop)
@@ -592,13 +600,35 @@ def parse_ms_oxprops(_silent=False):
                 lost = [x["name"] for x in parsed_prop_types
                         if all([(z not in x) for z in id_names])]
                 print("%5d lost for no ID defined" % len(lost))
+
+            # Това се пуска за разследване на повторения на кодовете на таговете
+            # Има някои, които не си отговарят добре на името и типа на данните
+            if _maintain:
+                parsed_list_ = []
+                for px_ in parsed_prop_types:
+                    for ex_, nx_ in enumerate(id_names):
+                        if nx_ in px_:
+                            tagid_ = int(px_[nx_], 16)
+                            parsed_list_.append((tagid_, ex_, px_['name']))
+                            break
+                parsed_list_ = sorted(parsed_list_, key=lambda x: x[0])
+                dups_found = set()
+                for ix_, px_ in enumerate(parsed_list_):
+                    dups = []
+                    for qx_ in parsed_list_[ix_+1:]:
+                        if qx_[0] == px_[0]:
+                            dups.append(qx_)
+                    if len(dups) > 0 and px_[0] not in dups_found:
+                        dups.insert(0, px_)
+                        for dup_ in dups:
+                            print('%04X %d %s' % dup_)
+                        dups_found.add(px_[0])
+                        print()
+                print(len(dups_found), 'entries: ', end='')
+                for dup_ in dups_found:
+                    print('%04X ' % dup_, end='')
+                print()
+
     return result
 
-all_props_types = parse_ms_oxprops(_silent=False)
-
-if __name__ == '__main__':
-    from pprint import pprint
-    # pt = parse_ms_oxprops()
-    # pprint(pt.values()[:5])
-    # pprint(nid_internal_types)
-    pprint(_code_pages_internet_map)
+all_props_types = parse_ms_oxprops(_silent=False, _maintain=True)
