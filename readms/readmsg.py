@@ -51,36 +51,48 @@ def enrich_prop(tag):
     return prop[0]
 
 
-def load_properties(ole, dire, target):
-    for dire_ in ole.dire_childs(dire.id):
-        found = prop_name_pattern.search(dire_.name)
-        if found is not None:
-            prop = enrich_prop(int(found.group('code'), 16))
-            ptype = int(found.group('type'), 16)
-            if ptype & 0x1000:
-                continue  # TODO Обслужване на multi-value стойности
-            pv = PropertyValue(ptype, ole.dire_read(dire_))
+def load_properties_var_length(ole, dire, target):
+    found = prop_name_pattern.search(dire.name)
+    if found is None:
+        return
+
+    prop = enrich_prop(int(found.group('code'), 16))
+    ptype = int(found.group('type'), 16)
+    if ptype & 0x1000:
+        return  # TODO Обслужване на multi-value стойности
+
+    pv = PropertyValue(ptype, ole.dire_read(dire))
+    target.append(Property(value=pv, prop=prop))
+
+
+def load_properties_fixed_length(ole, dire, target):
+    if not dire.name.startswith('__properties_version1.0'):
+        return
+
+    # 2.4.2.1 Fixed Length Property Entry
+    pdire = ole.dire_parent(dire.id)
+    if pdire.name.startswith('Root'):
+        data_offset = 32
+    if pdire.name.startswith('__attach') or pdire.name.startswith('__recip'):
+        data_offset = 8
+
+    obuf = ole.dire_read(dire)
+    for pos_ in range(data_offset, len(obuf)-data_offset, 16):
+        tag = list(unpackb("<HH", obuf, pos_)) # Property Tag (type, code)
+        # 2.4.2.2 Variable Length Property or Multiple-Valued Property Entry
+        # за тези с променлива дължина, стойността е размера на истинската стойност,
+        # което не си заслужава да се проверява със зареденото в предишния if блок
+        # 0x101F (multy-valued) 0x001F (string)
+        if tag[0] not in (0x101F, 0x001F):
+            pv = PropertyValue(tag[0], obuf[pos_+8:pos_+16])
+            prop = enrich_prop(tag[1])
             target.append(Property(value=pv, prop=prop))
 
-        if dire_.name.startswith('__properties_version1.0'):
-            # 2.4.2.1 Fixed Length Property Entry
-            pdire = ole.dire_parent(dire_.id)
-            if pdire.name.startswith('Root'):
-                data_offset = 32
-            if pdire.name.startswith('__attach') or pdire.name.startswith('__recip'):
-                data_offset = 8
 
-            obuf = ole.dire_read(dire_)
-            for pos_ in range(data_offset, len(obuf)-data_offset, 16):
-                tag = list(unpackb("<HH", obuf, pos_)) # Property Tag (type, code)
-                # 2.4.2.2 Variable Length Property or Multiple-Valued Property Entry
-                # за тези с променлива дължина, стойността е размера на истинската стойност,
-                # което не си заслужава да се проверява със зареденото в предишния if блок
-                # 0x101F (multy-valued) 0x001F (string)
-                if tag[0] not in (0x101F, 0x001F):
-                    pv = PropertyValue(tag[0], obuf[pos_+8:pos_+16])
-                    prop = enrich_prop(tag[1])
-                    target.append(Property(value=pv, prop=prop))
+def load_properties(ole, dire, target):
+    for dire_ in ole.dire_childs(dire.id):
+        load_properties_var_length(ole, dire_, target)
+        load_properties_fixed_length(ole, dire_, target)
 
 
 class AttributesContainer:
@@ -124,9 +136,8 @@ class Message(AttributesContainer):
                 self.recipients.append(Recipient(ole, dire_))
             if dire_.name.startswith('__attach_version1.0'):
                 self.attachments.append(Attachment(ole, dire_))
-        
+
         # TODO Приложени съобщения, рекурсивно
-        # TODO Още атрибути (именувани) от __nameid_version1.0
 
 
 def test_content(file):
