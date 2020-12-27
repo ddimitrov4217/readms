@@ -37,10 +37,11 @@ def print_property(pc, value_limit=30, binary_limit=128, with_empty=True):
         print(value, end='')
     else:
         if binary_limit == 0:
-            pass
-        value = pc.value.get_value()
-        value = PropertyValue.BinaryValue(value.data[:binary_limit])
-        print('\n', value, '\n', sep='', end='')
+            print('--скрито--', end='')
+        else:
+            value = pc.value.get_value()
+            value = PropertyValue.BinaryValue(value.data[:binary_limit])
+            print('\n', value, '\n', sep='', end='')
     print()
 
 
