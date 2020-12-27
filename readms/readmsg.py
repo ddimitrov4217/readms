@@ -83,11 +83,17 @@ def load_properties(ole, dire, target):
                     target.append(Property(value=pv, prop=prop))
 
 class Attachment:
-    pass
+    def __init__(self, ole, dire):
+        self.name = dire.name
+        self.properties = []
+        load_properties(ole, dire, self.properties)
 
 
 class Recipient:
-    pass
+    def __init__(self, ole, dire):
+        self.name = dire.name
+        self.properties = []
+        load_properties(ole, dire, self.properties)
 
 
 class Message:
@@ -102,8 +108,11 @@ class Message:
 
         with OLE(file) as ole:
             load_properties(ole, ole.root, self.properties)
-            # TODO Приложени файлове __attach_version1.0
-            # TODO Получатели __recip_version1.0
+            for _level, dire_ in ole.dire_trip(start=0):
+                if dire_.name.startswith('__recip_version1.0'):
+                    self.recipients.append(Recipient(ole, dire_))
+                if dire_.name.startswith('__attach_version1.0'):
+                    self.attachments.append(Attachment(ole, dire_))
             # TODO Още атрибути (именувани) от __nameid_version1.0
 
 
@@ -122,9 +131,19 @@ def test_read_message(file):
         code = x.prop['propCode']
         return code if not code.startswith('0x') else 'zzz-%s' % code
 
-    for pc in sorted(msg.properties, key=sort_props):
-        print_property(pc, with_empty=False)
+    print('\n== Message', '='*76, '\n')
+    for pc_ in sorted(msg.properties, key=sort_props):
+        print_property(pc_, with_empty=False)
 
+    for re_ in msg.recipients:
+        print('\n== Recipient', re_.name, '='*(76-len(re_.name)), '\n')
+        for pc_ in sorted(re_.properties, key=sort_props):
+            print_property(pc_, with_empty=False, binary_limit=0)
+
+    for re_ in msg.attachments:
+        print('\n== Attachment', re_.name, '='*(76-len(re_.name)), '\n')
+        for pc_ in sorted(re_.properties, key=sort_props):
+            print_property(pc_, with_empty=False)
 
 if __name__ == '__main__':
     from sys import argv
