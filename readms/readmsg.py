@@ -26,20 +26,7 @@ def enrich_prop(tag):
     return prop[0]
 
 
-def read_property(ole, dire):
-    found = prop_name_pattern.search(dire.name)
-    prop = enrich_prop(int(found.group('code'), 16))
-    ptype = int(found.group('type'), 16)
-    if ptype == 0x101F:
-        # TODO Обслужване на multi-value стойности
-        return None
-    return Property(value=PropertyValue(ptype, ole.dire_read(dire)), prop=prop)
-
-
 def load_properties(ole, dire, target):
-    # TODO атрибути с фиксирана дължина
-
-    # атрибути с променлива дължина
     for dire_ in ole.dire_childs(dire.id):
         found = prop_name_pattern.search(dire_.name)
         if found is not None:
@@ -50,6 +37,25 @@ def load_properties(ole, dire, target):
             pv = PropertyValue(ptype, ole.dire_read(dire_))
             target.append(Property(value=pv, prop=prop))
 
+        if dire_.name.startswith('__properties_version1.0'):
+            # 2.4.2.1 Fixed Length Property Entry
+            pdire = ole.dire_parent(dire_.id)
+            if pdire.name.startswith('Root'):
+                data_offset = 32
+            if pdire.name.startswith('__attach') or pdire.name.startswith('__recip'):
+                data_offset = 8
+
+            obuf = ole.dire_read(dire_)
+            for pos_ in range(data_offset, len(obuf)-data_offset, 16):
+                tag = list(unpackb("<HH", obuf, pos_)) # Property Tag (type, code)
+                # 2.4.2.2 Variable Length Property or Multiple-Valued Property Entry
+                # за тези с променлива дължина, стойността е размера на истинската стойност,
+                # което не си заслужава да се проверява със зареденото в предишния if блок
+                # 0x101F (multy-valued) 0x001F (string)
+                if tag[0] not in (0x101F, 0x001F):
+                    pv = PropertyValue(tag[0], obuf[pos_+8:pos_+16])
+                    prop = enrich_prop(tag[1])
+                    target.append(Property(value=pv, prop=prop))
 
 class Attachment:
     pass
@@ -91,33 +97,8 @@ def test_read_message(file):
         print(pc.value.get_value())
 
 
-def test_read__properties_block(file):
-    with OLE(file) as ole:
-        for _level, dire in ole.dire_trip(start=0):
-            if not dire.name.startswith('__properties_version1.0'):
-                continue
-            pdire = ole.dire_parent(dire.id)
-            if pdire.name.startswith('Root'):
-                data_offset = 32
-            if pdire.name.startswith('__attach') or pdire.name.startswith('__recip'):
-                data_offset = 8
-
-            obuf = ole.dire_read(dire)
-            print("%s, len=%d, %s" % (dire.name, len(obuf), pdire.name))
-
-            # 2.4.2.1 Fixed Length Property Entry
-            for pos_ in range(data_offset, len(obuf)-data_offset, 16):
-                tag = list(unpackb("<HH", obuf, pos_)) # Property Tag
-                # за тези с променлива дължина, стойността е размера
-                ttype = 0x0003 if tag[0] in (0x101F, 0x001F) else tag[0]
-                pc = PropertyValue(ttype, obuf[pos_+8:pos_+16])
-                tcode = enrich_prop(tag[1])['propCode']
-                print('  %4d : 0x%04X; %30s : %s' % (pos_, tag[0], tcode, pc.get_value()))
-
-
 if __name__ == '__main__':
     from sys import argv
     file_name_ = argv[1]
     # test_content(file_name_)
     test_read_message(file_name_)
-    # test_read__properties_block(file_name_)
