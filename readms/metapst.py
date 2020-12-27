@@ -569,8 +569,9 @@ def parse_ms_oxprops(_silent=False, _maintain=False):
         if etag == "PROP":
             name, = info
 
-            for prefix_ in ('PidTag', 'PidLid', 'PidName'):
-                name = name.replace(prefix_, '')
+            name = name.replace('PidTag', '')
+            name = name.replace('PidName', 'Name')
+            name = name.replace('PidLid', 'Lid')
 
             if _maintain and prop is not None:
                 for px_ in parsed_prop_types:
@@ -631,4 +632,4 @@ def parse_ms_oxprops(_silent=False, _maintain=False):
 
     return result
 
-all_props_types = parse_ms_oxprops(_silent=False, _maintain=True)
+all_props_types = parse_ms_oxprops(_silent=False, _maintain=False)
