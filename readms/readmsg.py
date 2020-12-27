@@ -20,6 +20,30 @@ prop_name_pattern = re.compile(
 
 Property = namedtuple('Property', ['value', 'prop'])
 
+def print_property(pc, value_limit=30, binary_limit=128, with_empty=True):
+    value_type, value_def_size, _ = pc.value.pt_desc
+    value_size = len(pc.value._buf)
+
+    if value_size == 0 and not with_empty:
+        return
+
+    print("0x%04X %-10s %4d %6d %-40s" % (
+        pc.prop['propTag'], value_type, value_def_size,
+        value_size, pc.prop['propCode'], ), end='')
+
+    if value_type != 'Binary':
+        value = pc.value.get_value()
+        value = value if len(str(value)) <= value_limit else '\n%s\n' % value
+        print(value, end='')
+    else:
+        if binary_limit == 0:
+            pass
+        value = pc.value.get_value()
+        value = PropertyValue.BinaryValue(value.data[:binary_limit])
+        print('\n', value, '\n', sep='', end='')
+    print()
+
+
 def enrich_prop(tag):
     prop = [dict(propTag=tag)]
     enrich_prop_code(prop)
@@ -92,9 +116,13 @@ def test_content(file):
 
 def test_read_message(file):
     msg = Message(file)
-    for pc in msg.properties:
-        print('\n', pc.prop['propCode'], sep='')
-        print(pc.value.get_value())
+
+    def sort_props(x):
+        code = x.prop['propCode']
+        return code if not code.startswith('0x') else 'zzz-%s' % code
+
+    for pc in sorted(msg.properties, key=sort_props):
+        print_property(pc, with_empty=False)
 
 
 if __name__ == '__main__':
