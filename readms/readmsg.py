@@ -82,38 +82,51 @@ def load_properties(ole, dire, target):
                     prop = enrich_prop(tag[1])
                     target.append(Property(value=pv, prop=prop))
 
-class Attachment:
+
+class AttributesContainer:
     def __init__(self, ole, dire):
         self.name = dire.name
         self.properties = []
         load_properties(ole, dire, self.properties)
 
+    def print(self, heading='', value_limit=30, binary_limit=128, with_empty=True):
+        print('\n==', heading, self.name, '='*(76-len(self.name)), '\n')
+        for pc_ in sorted(self.properties, key=AttributesContainer._sort_props_key):
+            print_property(pc_, with_empty=with_empty, binary_limit=binary_limit,
+                           value_limit=value_limit)
 
-class Recipient:
+    @staticmethod
+    def _sort_props_key(x):
+        code = x.prop['propCode']
+        return code if not code.startswith('0x') else 'zzz-%s' % code
+
+
+class Attachment(AttributesContainer):
     def __init__(self, ole, dire):
-        self.name = dire.name
-        self.properties = []
-        load_properties(ole, dire, self.properties)
+        AttributesContainer.__init__(self, ole, dire)
 
 
-class Message:
+class Recipient(AttributesContainer):
+    def __init__(self, ole, dire):
+        AttributesContainer.__init__(self, ole, dire)
+
+
+class Message(AttributesContainer):
     # pylint: disable=too-few-public-methods
     # Представлява контейнер на атрибути, които са публични
 
-    def __init__(self, file):
-        self.file = file
-        self.properties = []
+    def __init__(self, ole, dire):
+        AttributesContainer.__init__(self, ole, dire)
         self.attachments = []
         self.recipients = []
-
-        with OLE(file) as ole:
-            load_properties(ole, ole.root, self.properties)
-            for _level, dire_ in ole.dire_trip(start=0):
-                if dire_.name.startswith('__recip_version1.0'):
-                    self.recipients.append(Recipient(ole, dire_))
-                if dire_.name.startswith('__attach_version1.0'):
-                    self.attachments.append(Attachment(ole, dire_))
-            # TODO Още атрибути (именувани) от __nameid_version1.0
+        for _level, dire_ in ole.dire_trip(start=dire.id):
+            if dire_.name.startswith('__recip_version1.0'):
+                self.recipients.append(Recipient(ole, dire_))
+            if dire_.name.startswith('__attach_version1.0'):
+                self.attachments.append(Attachment(ole, dire_))
+        
+        # TODO Приложени съобщения, рекурсивно
+        # TODO Още атрибути (именувани) от __nameid_version1.0
 
 
 def test_content(file):
@@ -125,25 +138,18 @@ def test_content(file):
 
 
 def test_read_message(file):
-    msg = Message(file)
+    with OLE(file) as ole:
+        msg = Message(ole, ole.root)
 
-    def sort_props(x):
-        code = x.prop['propCode']
-        return code if not code.startswith('0x') else 'zzz-%s' % code
+    def custom_print(x, heading):
+        x.print(heading, with_empty=False, binary_limit=0)
 
-    print('\n== Message', '='*76, '\n')
-    for pc_ in sorted(msg.properties, key=sort_props):
-        print_property(pc_, with_empty=False)
-
+    custom_print(msg, 'Message')
     for re_ in msg.recipients:
-        print('\n== Recipient', re_.name, '='*(76-len(re_.name)), '\n')
-        for pc_ in sorted(re_.properties, key=sort_props):
-            print_property(pc_, with_empty=False, binary_limit=0)
-
+        custom_print(re_, 'Recipient')
     for re_ in msg.attachments:
-        print('\n== Attachment', re_.name, '='*(76-len(re_.name)), '\n')
-        for pc_ in sorted(re_.properties, key=sort_props):
-            print_property(pc_, with_empty=False)
+        custom_print(re_, 'Attachment')
+
 
 if __name__ == '__main__':
     from sys import argv
