@@ -67,20 +67,24 @@ class PropertiesStream(OLE):
         enrich_prop_code(prop)
         return prop[0]
 
-    NamedMapEntry = namedtuple('NamedMapEntry', ('tag', 'code', 'guid_ix', 'flag', 'ino'))
+    NamedMapEntry = namedtuple('NamedMapEntry', ('tag', 'code', 'guid', 'flag', 'ino'))
 
     def _load_named_entries(self):
         # 2.2.3 Named Property Mapping Storage
         dire = self.dire_find('__nameid_version1.0')
 
         entry_stream = []
+        guids_list = []
         for dire_ in self.dire_childs(dire.id):
             obuf = self.dire_read(dire_)
 
             if dire_.name.startswith('__substg1.0_00020102'):
-                # TODO 2.2.3.1.1 GUID Stream
-                print(dire_.name, len(obuf))
-                dump_hex(obuf)
+                # 2.2.3.1.1 GUID Stream
+                # [MS-OXPROPS] 1.3.2 Commonly Used Property Sets
+                # https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxprops/
+                for pos in range(0, len(obuf), 16):
+                    guid = unpackb("<LHH8B", obuf, pos)
+                    guids_list.append('%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X' % guid)
 
             if dire_.name.startswith('__substg1.0_00030102'):
                 # 2.2.3.1.2 Entry Stream
@@ -96,20 +100,21 @@ class PropertiesStream(OLE):
                 att_names = obuf
 
         # TODO За какво се използват останалите stream-ове от __nameid_version1.0
+        # TODO 2.2.3.2 Property Name to Property ID Mapping Streams
+        # Като че ли няма с какво повече да са ни полезни
 
         result = []
         for name_ix, guid_ix, entry_flag, prop_ix in entry_stream:
+            guid = guids_list[guid_ix-3] if guid_ix >= 3 else None
             if entry_flag == 1:
                 name_len = unpackb("<l", att_names, name_ix)[0]
                 entry_name = decode(att_names[name_ix+4:name_ix+4+name_len], "UTF-16LE", "replace")
-                # print('%2d %04X %2d %s' % (prop_ix, prop_ix+0x8000, guid_ix, entry_name))
                 result.append(PropertiesStream.NamedMapEntry(
                     tag=prop_ix+0x8000, code=entry_name,
-                    guid_ix=guid_ix, flag=entry_flag, ino=prop_ix))
+                    guid=guid, flag=entry_flag, ino=prop_ix))
             else:
-                # print('%2d %04X %2d' % (prop_ix, name_ix, guid_ix))
                 result.append(PropertiesStream.NamedMapEntry(
-                    tag=name_ix, code=None, guid_ix=guid_ix, flag=entry_flag, ino=prop_ix))
+                    tag=name_ix, code=None, guid=guid, flag=entry_flag, ino=prop_ix))
 
         return result
 
