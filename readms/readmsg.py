@@ -204,7 +204,7 @@ class Message(AttributesContainer):
         AttributesContainer.__init__(self, ole, dire)
         self.attachments = []
         self.recipients = []
-        for _level, dire_ in ole.dire_trip(start=dire.id):
+        for dire_ in ole.dire_childs(dire.id):
             if dire_.name.startswith('__recip_version1.0'):
                 self.recipients.append(Recipient(ole, dire_))
             if dire_.name.startswith('__attach_version1.0'):
