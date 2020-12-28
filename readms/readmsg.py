@@ -132,8 +132,9 @@ class AttributesContainer:
         self.properties = []
         self._load(ole, dire)
 
-    def print(self, heading='', value_limit=30, binary_limit=128, with_empty=True):
-        print('\n==', heading, self.name, '='*(76-len(self.name)), '\n')
+    def print(self, value_limit=30, binary_limit=128, with_empty=True):
+        heading = self.__class__.__name__
+        print('\n==', heading, self.name, '='*(76-len(self.name)-len(heading)), '\n')
         for pc_ in sorted(self.properties, key=AttributesContainer._sort_props_key):
             print_property(pc_, with_empty=with_empty, binary_limit=binary_limit,
                            value_limit=value_limit)
@@ -212,6 +213,15 @@ class Message(AttributesContainer):
 
         # TODO Приложени съобщения, рекурсивно
 
+    def print(self, value_limit=30, binary_limit=128, with_empty=True):
+        def with_params_print(x):
+            AttributesContainer.print(x, value_limit, binary_limit, with_empty)
+        with_params_print(self)
+        for re_ in self.recipients:
+            with_params_print(re_)
+        for re_ in self.attachments:
+            with_params_print(re_)
+
 
 def test_content(file):
     with OLE(file) as ole:
@@ -224,15 +234,7 @@ def test_content(file):
 def test_read_message(file):
     with PropertiesStream(file) as ole:
         msg = Message(ole, ole.root)
-
-    def custom_print(x, heading):
-        x.print(heading, with_empty=False, binary_limit=0)
-
-    custom_print(msg, 'Message')
-    for re_ in msg.recipients:
-        custom_print(re_, 'Recipient')
-    for re_ in msg.attachments:
-        custom_print(re_, 'Attachment')
+        msg.print(with_empty=False, binary_limit=0)
 
 
 if __name__ == '__main__':
