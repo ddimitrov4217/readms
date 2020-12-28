@@ -214,13 +214,11 @@ class Message(AttributesContainer):
         # TODO Приложени съобщения, рекурсивно
 
     def print(self, value_limit=30, binary_limit=128, with_empty=True):
-        def with_params_print(x):
-            AttributesContainer.print(x, value_limit, binary_limit, with_empty)
-        with_params_print(self)
+        AttributesContainer.print(self, value_limit, binary_limit, with_empty)
         for re_ in self.recipients:
-            with_params_print(re_)
+            re_.print(value_limit, binary_limit, with_empty)
         for re_ in self.attachments:
-            with_params_print(re_)
+            re_.print(value_limit, binary_limit, with_empty)
 
 
 def test_content(file):
