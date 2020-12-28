@@ -46,18 +46,12 @@ def print_property(pc, value_limit=30, binary_limit=128, with_empty=True):
     print()
 
 
-def enrich_prop(tag):
-    prop = [dict(propTag=tag)]
-    enrich_prop_code(prop)
-    return prop[0]
-
-
 def load_properties_var_length(ole, dire, target):
     found = prop_name_pattern.search(dire.name)
     if found is None:
         return
 
-    prop = enrich_prop(int(found.group('code'), 16))
+    prop = ole.enrich_prop(int(found.group('code'), 16))
     ptype = int(found.group('type'), 16)
     if ptype & 0x1000:
         return  # TODO Обслужване на multi-value стойности
@@ -86,7 +80,7 @@ def load_properties_fixed_length(ole, dire, target):
         # 0x101F (multy-valued) 0x001F (string)
         if tag[0] not in (0x101F, 0x001F):
             pv = PropertyValue(tag[0], obuf[pos_+8:pos_+16])
-            prop = enrich_prop(tag[1])
+            prop = ole.enrich_prop(tag[1])
             target.append(Property(value=pv, prop=prop))
 
 
@@ -109,6 +103,13 @@ class PropertiesStream(OLE):
         print(self._named_entries)
         self._print_named_map()
         return self
+
+    def enrich_prop(self, tag):
+        if tag in self._named_map:
+            return dict(propTag=tag, propCode=self._named_map[tag].code)
+        prop = [dict(propTag=tag)]
+        enrich_prop_code(prop)
+        return prop[0]
 
     NamedMapEntry = namedtuple('NamedMapEntry', ('tag', 'code', 'guid_ix', 'flag', 'ino'))
 
