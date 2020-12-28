@@ -173,6 +173,8 @@ class AttributesContainer:
             data_offset = 32
         if pdire.name.startswith('__attach') or pdire.name.startswith('__recip'):
             data_offset = 8
+        if pdire.name.startswith('__substg1.0_3701000D'):
+            data_offset = 24
 
         obuf = ole.dire_read(dire)
         for pos_ in range(data_offset, len(obuf)-data_offset, 16):
@@ -190,6 +192,27 @@ class AttributesContainer:
 class Attachment(AttributesContainer):
     def __init__(self, ole, dire):
         AttributesContainer.__init__(self, ole, dire)
+        self.attach_method = self._attach_method()
+        self.message = self._load_message(ole, dire)
+
+    def print(self, value_limit=30, binary_limit=128, with_empty=True):
+        AttributesContainer.print(self, value_limit, binary_limit, with_empty)
+        if self.message is not None:
+            self.message.print(value_limit, binary_limit, with_empty)
+
+    def _load_message(self, ole, dire):
+        # 2.2.2.1 Embedded Message Object Storage - PidTagAttachMethod==5?
+        if self.attach_method == 5:
+            for dire_ in ole.dire_childs(dire.id):
+                if dire_.name.startswith('__substg1.0_3701000D'):
+                    return Message(ole, dire_)
+        return None
+
+    def _attach_method(self):
+        for px_ in self.properties:
+            if px_.prop['propCode'] == 'AttachMethod':
+                return px_.value.get_value()
+        return None
 
 
 class Recipient(AttributesContainer):
@@ -210,8 +233,6 @@ class Message(AttributesContainer):
                 self.recipients.append(Recipient(ole, dire_))
             if dire_.name.startswith('__attach_version1.0'):
                 self.attachments.append(Attachment(ole, dire_))
-
-        # TODO Приложени съобщения, рекурсивно
 
     def print(self, value_limit=30, binary_limit=128, with_empty=True):
         AttributesContainer.print(self, value_limit, binary_limit, with_empty)
