@@ -46,50 +46,6 @@ def print_property(pc, value_limit=30, binary_limit=128, with_empty=True):
     print()
 
 
-def load_properties_var_length(ole, dire, target):
-    found = prop_name_pattern.search(dire.name)
-    if found is None:
-        return
-
-    prop = ole.enrich_prop(int(found.group('code'), 16))
-    ptype = int(found.group('type'), 16)
-    if ptype & 0x1000:
-        return  # TODO Обслужване на multi-value стойности
-
-    pv = PropertyValue(ptype, ole.dire_read(dire))
-    target.append(Property(value=pv, prop=prop))
-
-
-def load_properties_fixed_length(ole, dire, target):
-    if not dire.name.startswith('__properties_version1.0'):
-        return
-
-    # 2.4.2.1 Fixed Length Property Entry
-    pdire = ole.dire_parent(dire.id)
-    if pdire.name.startswith('Root'):
-        data_offset = 32
-    if pdire.name.startswith('__attach') or pdire.name.startswith('__recip'):
-        data_offset = 8
-
-    obuf = ole.dire_read(dire)
-    for pos_ in range(data_offset, len(obuf)-data_offset, 16):
-        tag = list(unpackb("<HH", obuf, pos_)) # Property Tag (type, code)
-        # 2.4.2.2 Variable Length Property or Multiple-Valued Property Entry
-        # за тези с променлива дължина, стойността е размера на истинската стойност,
-        # което не си заслужава да се проверява със зареденото в предишния if блок
-        # 0x101F (multy-valued) 0x001F (string)
-        if tag[0] not in (0x101F, 0x001F):
-            pv = PropertyValue(tag[0], obuf[pos_+8:pos_+16])
-            prop = ole.enrich_prop(tag[1])
-            target.append(Property(value=pv, prop=prop))
-
-
-def load_properties(ole, dire, target):
-    for dire_ in ole.dire_childs(dire.id):
-        load_properties_var_length(ole, dire_, target)
-        load_properties_fixed_length(ole, dire_, target)
-
-
 class PropertiesStream(OLE):
     def __init__(self, file):
         OLE.__init__(self, file)
@@ -174,7 +130,7 @@ class AttributesContainer:
     def __init__(self, ole, dire):
         self.name = dire.name
         self.properties = []
-        load_properties(ole, dire, self.properties)
+        self._load(ole, dire)
 
     def print(self, heading='', value_limit=30, binary_limit=128, with_empty=True):
         print('\n==', heading, self.name, '='*(76-len(self.name)), '\n')
@@ -186,6 +142,48 @@ class AttributesContainer:
     def _sort_props_key(x):
         code = x.prop['propCode']
         return code if not code.startswith('0x') else 'zzz-%s' % code
+
+    def _load(self, ole, dire):
+        for dire_ in ole.dire_childs(dire.id):
+            self._load_variable_length(ole, dire_)
+            self._load_fixed_length(ole, dire_)
+
+    def _load_variable_length(self, ole, dire):
+        found = prop_name_pattern.search(dire.name)
+        if found is None:
+            return
+
+        prop = ole.enrich_prop(int(found.group('code'), 16))
+        ptype = int(found.group('type'), 16)
+        if ptype & 0x1000:
+            return  # TODO Обслужване на multi-value стойности
+
+        pv = PropertyValue(ptype, ole.dire_read(dire))
+        self.properties.append(Property(value=pv, prop=prop))
+
+
+    def _load_fixed_length(self, ole, dire):
+        if not dire.name.startswith('__properties_version1.0'):
+            return
+
+        # 2.4.2.1 Fixed Length Property Entry
+        pdire = ole.dire_parent(dire.id)
+        if pdire.name.startswith('Root'):
+            data_offset = 32
+        if pdire.name.startswith('__attach') or pdire.name.startswith('__recip'):
+            data_offset = 8
+
+        obuf = ole.dire_read(dire)
+        for pos_ in range(data_offset, len(obuf)-data_offset, 16):
+            tag = list(unpackb("<HH", obuf, pos_)) # Property Tag (type, code)
+            # 2.4.2.2 Variable Length Property or Multiple-Valued Property Entry
+            # за тези с променлива дължина, стойността е размера на истинската стойност,
+            # което не си заслужава да се проверява със зареденото в предишния if блок
+            # 0x101F (multy-valued) 0x001F (string)
+            if tag[0] not in (0x101F, 0x001F):
+                pv = PropertyValue(tag[0], obuf[pos_+8:pos_+16])
+                prop = ole.enrich_prop(tag[1])
+                self.properties.append(Property(value=pv, prop=prop))
 
 
 class Attachment(AttributesContainer):
