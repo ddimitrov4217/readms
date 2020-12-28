@@ -54,20 +54,22 @@ class PropertiesStream(OLE):
 
     def __enter__(self):
         OLE.__enter__(self)
-        self._named_entries = self._load_named_entries()
-        self._named_map = self._load_named_map()
-        print(self._named_entries)
+        self._named_map = self._load_named_entries()
         self._print_named_map()
         return self
 
     def enrich_prop(self, tag):
         if tag in self._named_map:
             return dict(propTag=tag, propCode=self._named_map[tag].code)
+        return self._oxprops(tag)
+
+    @staticmethod
+    def _oxprops(tag):
         prop = [dict(propTag=tag)]
         enrich_prop_code(prop)
         return prop[0]
 
-    NamedMapEntry = namedtuple('NamedMapEntry', ('tag', 'code', 'guid', 'flag', 'ino'))
+    NamedMapEntry = namedtuple('NamedMapEntry', ('tag', 'code', 'guid', 'flag'))
 
     def _load_named_entries(self):
         # 2.2.3 Named Property Mapping Storage
@@ -100,7 +102,7 @@ class PropertiesStream(OLE):
                 att_names = obuf
 
         # 2.2.3.2 Property Name to Property ID Mapping Streams
-        # Нямаме нужда от това тъй като то дублира горното съответствие в обратна посока
+        # Няма нужда от това тъй като то дублира горното съответствие в обратна посока
 
         result = []
         for name_ix, guid_ix, entry_flag, prop_ix in entry_stream:
@@ -110,19 +112,13 @@ class PropertiesStream(OLE):
                 entry_name = decode(att_names[name_ix+4:name_ix+4+name_len], "UTF-16LE", "replace")
                 result.append(PropertiesStream.NamedMapEntry(
                     tag=prop_ix+0x8000, code=entry_name,
-                    guid=guid, flag=entry_flag, ino=prop_ix))
+                    guid=guid, flag=entry_flag))
             else:
                 result.append(PropertiesStream.NamedMapEntry(
-                    tag=name_ix, code=None, guid=guid, flag=entry_flag, ino=prop_ix))
+                    tag=prop_ix+0x8000, code=self._oxprops(name_ix)['propCode'],
+                    guid=guid, flag=entry_flag))
 
-        return result
-
-    def _load_named_map(self):
-        result = {}
-        for ex_ in self._named_entries:
-            if ex_.flag == 1:
-                result[ex_.tag] = ex_
-        return result
+        return {ex_.tag: ex_ for ex_ in result}
 
     def _print_named_map(self):
         for key_ in sorted(self._named_map.keys()):
