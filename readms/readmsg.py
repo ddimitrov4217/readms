@@ -90,11 +90,10 @@ def load_properties_fixed_length(ole, dire, target):
             target.append(Property(value=pv, prop=prop))
 
 def load_properties_named(ole, dire, target):
-    # TODO 2.2.3 Named Property Mapping Storage
+    # TODO 2.2.3 Named Property Mapping Storage - все още не разбирам идеята
     if not dire.name.startswith('__nameid_version1.0'):
         return
 
-    att_names = {}
     entry_stream = []
     for dire_ in ole.dire_childs(dire.id):
         obuf = ole.dire_read(dire_)
@@ -105,37 +104,26 @@ def load_properties_named(ole, dire, target):
             dump_hex(obuf)
 
         if dire_.name.startswith('__substg1.0_00030102'):
-            # TODO 2.2.3.1.2 Entry Stream
-            print(dire_.name, len(obuf))
-            dump_hex(obuf)
+            # 2.2.3.1.2 Entry Stream
             for pos in range(0, len(obuf), 8):
                 name_ix = unpackb("<L", obuf, pos)[0]  # Name Identifier/String Offset
                 # 2.2.3.1.2.1 Index and Kind Information
                 prop_ix = unpackb("<H", obuf, pos+6)[0]  # Property Index
                 guid_ix = unpackb("<H", obuf, pos+4)[0]  # GUID Index
-                print('%04X %2d %2d %1d' % (name_ix, prop_ix, guid_ix>>1, guid_ix&0x1))
                 entry_stream.append((name_ix, guid_ix>>1, guid_ix&0x1, prop_ix))
 
         if dire_.name.startswith('__substg1.0_00040102'):
-            # 2.2.3.1.3 String Stream - имената на атрибутите
-            att_names_buf = obuf
-            pos = 0
-            while pos < len(obuf):
-                # XXX Това не е необходимо
-                lx = unpackb("<l", obuf, pos)[0]
-                pos += 4
-                val_ = decode(obuf[pos:pos+lx], "UTF-16LE", "replace")
-                att_names['%04X' % (pos-4)] = val_
-                # A new entry MUST always start on a 4 byte boundary
-                pos += lx + ((4-lx%4) if lx%4!=0 else 0)
+            # 2.2.3.1.3 String Stream - имената на атрибутите, само буфера е достатъчен
+            att_names = obuf
 
-            print(att_names)
-
-    for ex_ in entry_stream:
-        if ex_[2] == 1:
-            lx = unpackb("<l", att_names_buf, ex_[0])[0]
-            val_ = decode(att_names_buf[ex_[0]+4:ex_[0]+4+lx], "UTF-16LE", "replace")
-            print('%04X %s' % (ex_[3], val_))
+    # debug на entry stream
+    for name_ix, guid_ix, entry_flag, prop_ix in entry_stream:
+        if entry_flag == 1:
+            name_len = unpackb("<l", att_names, name_ix)[0]
+            entry_name = decode(att_names[name_ix+4:name_ix+4+name_len], "UTF-16LE", "replace")
+            print('%2d %04X %2d %s' % (prop_ix, prop_ix+0x8000, guid_ix, entry_name))
+        else:
+            print('%2d %04X %2d' % (prop_ix, name_ix, guid_ix))
 
 
 def load_properties(ole, dire, target):
