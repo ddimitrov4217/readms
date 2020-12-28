@@ -90,8 +90,6 @@ def load_properties_fixed_length(ole, dire, target):
             target.append(Property(value=pv, prop=prop))
 
 
-
-
 def load_properties(ole, dire, target):
     for dire_ in ole.dire_childs(dire.id):
         load_properties_var_length(ole, dire_, target)
@@ -101,14 +99,20 @@ def load_properties(ole, dire, target):
 class PropertiesStream(OLE):
     def __init__(self, file):
         OLE.__init__(self, file)
-        self.named_mapping = None
+        self._named_entries = None
+        self._named_map = None
 
     def __enter__(self):
         OLE.__enter__(self)
-        self.named_mapping = self._load_named_map()
+        self._named_entries = self._load_named_entries()
+        self._named_map = self._load_named_map()
+        print(self._named_entries)
+        self._print_named_map()
         return self
 
-    def _load_named_map(self):
+    NamedMapEntry = namedtuple('NamedMapEntry', ('tag', 'code', 'guid_ix', 'flag', 'ino'))
+
+    def _load_named_entries(self):
         # 2.2.3 Named Property Mapping Storage
         dire = self.dire_find('__nameid_version1.0')
 
@@ -136,17 +140,33 @@ class PropertiesStream(OLE):
 
         # TODO За какво се използват останалите stream-ове от __nameid_version1.0
 
-        # debug на entry stream
+        result = []
         for name_ix, guid_ix, entry_flag, prop_ix in entry_stream:
             if entry_flag == 1:
                 name_len = unpackb("<l", att_names, name_ix)[0]
                 entry_name = decode(att_names[name_ix+4:name_ix+4+name_len], "UTF-16LE", "replace")
-                print('%2d %04X %2d %s' % (prop_ix, prop_ix+0x8000, guid_ix, entry_name))
+                # print('%2d %04X %2d %s' % (prop_ix, prop_ix+0x8000, guid_ix, entry_name))
+                result.append(PropertiesStream.NamedMapEntry(
+                    tag=prop_ix+0x8000, code=entry_name,
+                    guid_ix=guid_ix, flag=entry_flag, ino=prop_ix))
             else:
-                print('%2d %04X %2d' % (prop_ix, name_ix, guid_ix))
+                # print('%2d %04X %2d' % (prop_ix, name_ix, guid_ix))
+                result.append(PropertiesStream.NamedMapEntry(
+                    tag=name_ix, code=None, guid_ix=guid_ix, flag=entry_flag, ino=prop_ix))
 
-        # TODO Привеждане в удобна за намиране на описанието на кодовете структура
-        return entry_stream
+        return result
+
+    def _load_named_map(self):
+        result = {}
+        for ex_ in self._named_entries:
+            if ex_.flag == 1:
+                result[ex_.tag] = ex_
+        return result
+
+    def _print_named_map(self):
+        for key_ in sorted(self._named_map.keys()):
+            print('%04X ' % key_, end='')
+            print(self._named_map[key_])
 
 
 class AttributesContainer:
