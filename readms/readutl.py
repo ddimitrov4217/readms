@@ -4,6 +4,7 @@
 import re
 import os
 from struct import unpack_from as unpackb, calcsize
+from uuid import UUID
 
 
 def dump_hex(buf, lx=16, out=None):
@@ -161,6 +162,13 @@ def run_profile(fun, *argv, **kwargv):
 def ulong_from_tuple(value):
     return sum(256**x*y for x, y in zip((0, 1, 2, 3), value))
 
+def uuid_from_buf(buf):
+    # NOTE с параметъра bytes_le нещо не работи
+    fx1 = unpackb("<LHHBB6B", buf)
+    fx6 = list(fx1[:5])
+    fx5 = zip(range(5, -1, -1), fx1[5:])
+    fx6.append(sum(256**x*y for x, y in fx5))
+    return UUID(fields=fx6)
 
 def uncommpress_rtf(body):
     # [MS-OXRTFCP] http://download.microsoft.com/download/5/D/D/

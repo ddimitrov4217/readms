@@ -6,7 +6,7 @@ from codecs import decode
 from collections import namedtuple
 from struct import unpack_from as unpackb
 from readms.readole import OLE
-from readms.readutl import dump_hex
+from readms.readutl import dump_hex, uuid_from_buf
 from readms.readpst import PropertyValue
 from readms.metapst import enrich_prop_code
 
@@ -83,8 +83,8 @@ class PropertiesStream(OLE):
                 # [MS-OXPROPS] 1.3.2 Commonly Used Property Sets
                 # https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxprops/
                 for pos in range(0, len(obuf), 16):
-                    guid = unpackb("<LHH8B", obuf, pos)
-                    guids_list.append('%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X' % guid)
+                    guid = uuid_from_buf(obuf[pos:])
+                    guids_list.append(str(guid).upper())
 
             if dire_.name.startswith('__substg1.0_00030102'):
                 # 2.2.3.1.2 Entry Stream

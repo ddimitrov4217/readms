@@ -14,7 +14,7 @@ from io import StringIO
 from datetime import datetime, timedelta
 from struct import unpack_from as unpackb, calcsize
 from pytz import timezone, utc as UTC
-from readms.readutl import dump_hex, decode_permute, ulong_from_tuple, UnpackDesc
+from readms.readutl import dump_hex, decode_permute, ulong_from_tuple, UnpackDesc, uuid_from_buf
 from readms.metapst import (
     page_types, nid_types, nid_internal_types,
     prop_types, all_props_types,
@@ -600,13 +600,7 @@ class PropertyNameMap(PropertyContext):
         guids = []
         pos = 0
         while pos < data_len:
-            # NOTE с параметъра bytes_le нещо не работи
-            fx1 = unpackb("<LHHBB6B", data[pos:])
-            fx6 = list(fx1[:5])
-            fx5 = zip(range(5, -1, -1), fx1[5:])
-            fx6.append(sum(256**x*y for x, y in fx5))
-            guid = uuid.UUID(fields=fx6)
-            guids.append(guid)
+            guids.append(uuid_from_buf(data[pos:]))
             pos += 16
         return guids
 
