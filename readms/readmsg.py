@@ -99,9 +99,8 @@ class PropertiesStream(OLE):
                 # 2.2.3.1.3 String Stream - имената на атрибутите, само буфера е достатъчен
                 att_names = obuf
 
-        # TODO За какво се използват останалите stream-ове от __nameid_version1.0
-        # TODO 2.2.3.2 Property Name to Property ID Mapping Streams
-        # Като че ли няма с какво повече да са ни полезни
+        # 2.2.3.2 Property Name to Property ID Mapping Streams
+        # Нямаме нужда от това тъй като то дублира горното съответствие в обратна посока
 
         result = []
         for name_ix, guid_ix, entry_flag, prop_ix in entry_stream:
