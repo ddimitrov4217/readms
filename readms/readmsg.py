@@ -5,8 +5,10 @@ import re
 from codecs import decode
 from collections import namedtuple
 from struct import unpack_from as unpackb
+import click
+
 from readms.readole import OLE
-from readms.readutl import dump_hex, uuid_from_buf
+from readms.readutl import uuid_from_buf
 from readms.readpst import PropertyValue
 from readms.metapst import enrich_prop_code
 
@@ -242,22 +244,28 @@ class Message(AttributesContainer):
             re_.print(value_limit, binary_limit, with_empty)
 
 
-def test_content(file):
-    with OLE(file) as ole:
-        for _level, dire in ole.dire_trip(start=0):
-            obuf = ole.dire_read(dire)
-            print("%s, len=%d" % (dire.name, len(obuf)))
-            dump_hex(obuf[:512])
+@click.group()
+def cli():
+    pass
 
 
-def test_read_message(file):
+@cli.command('dump', help='Извежда всички атрибути на съобщението')
+@click.argument('file')
+@click.option('--binary-limit', default=0, show_default=True, help='Максимум байтове за извеждане')
+@click.option('--with-empty', is_flag=True, show_default=True, help='Извежда и празните атрибути')
+def test_read_message(file, with_empty=False, binary_limit=0):
     with PropertiesStream(file) as ole:
         msg = Message(ole, ole.root)
-        msg.print(with_empty=False, binary_limit=0)
+        msg.print(with_empty=with_empty, binary_limit=binary_limit)
 
 
-if __name__ == '__main__':
+def test():
     from sys import argv
     file_name_ = argv[1]
     # test_content(file_name_)
     test_read_message(file_name_)
+
+
+if __name__ == '__main__':
+    # test()
+    cli()
