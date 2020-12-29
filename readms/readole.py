@@ -9,6 +9,7 @@ import logging.config
 
 from struct import unpack_from as unpackb
 from codecs import decode
+import click
 from readms.readutl import dump_hex
 
 if __name__ == '__main__':
@@ -264,12 +265,22 @@ def test_ole(file):
         pass
 
 
-def test_dire(file, start=0):
+@click.group()
+def cli():
+    pass
+
+
+@cli.command('list', help='Извежда структурата на OLE контейнер')
+@click.argument('file')
+@click.option('--dirs', is_flag=True, show_default=True, help='Извежда само папките')
+def test_dire(file, dirs=False, start=0):
     with OLE(file) as ole:
         trip_list = []
         max_level = 0
 
         for level, dire in ole.dire_trip(start=start):
+            if dirs and dire.type_name not in ('Root', 'Storage'):
+                continue
             trip_list.append((level, dire))
             if max_level < level:
                 max_level = level
@@ -280,6 +291,9 @@ def test_dire(file, start=0):
                    dire._size, dire.type_name))
 
 
+@cli.command('dump', help='Извежда binary съдържанието на OLE контейнер')
+@click.argument('file')
+@click.option('--maxlen', default=512, show_default=True, help='Максимум байтове за елемент')
 def test_content(file, maxlen=512):
     def test_read(ole, stream_name, maxlen=maxlen):
         dire = ole.dire_find(stream_name)
@@ -292,10 +306,16 @@ def test_content(file, maxlen=512):
         for _level, dire in ole.dire_trip(start=0):
             test_read(ole, dire.name)
 
-if __name__ == '__main__':
+
+def test():
     from sys import argv
     log.setLevel('DEBUG')
     file_name_ = argv[1]
     # test_ole(file_name_)
     test_dire(file_name_, start=0)
     # test_content(file_name_)
+
+
+if __name__ == '__main__':
+    # test()
+    cli()
