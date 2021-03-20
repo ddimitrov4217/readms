@@ -57,7 +57,7 @@ class PropertiesStream(OLE):
     def __enter__(self):
         OLE.__enter__(self)
         self._named_map = self._load_named_entries()
-        self._print_named_map()
+        # XXX да зависи от log.level self._print_named_map()
         return self
 
     def enrich_prop(self, tag):
