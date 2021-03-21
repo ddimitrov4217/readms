@@ -7,10 +7,10 @@ from collections import namedtuple
 from struct import unpack_from as unpackb
 import click
 
-from readms.readole import OLE
-from readms.readutl import uuid_from_buf
-from readms.readpst import PropertyValue
-from readms.metapst import enrich_prop_code
+from .readole import OLE
+from .readutl import uuid_from_buf
+from .readpst import PropertyValue
+from .metapst import enrich_prop_code
 
 # [MS-OXMSG]: Outlook Item (.msg) File Format
 # Описанието на формата се намира на
@@ -128,11 +128,15 @@ class PropertiesStream(OLE):
             print(self._named_map[key_])
 
 
+# pylint: disable=too-few-public-methods
+# представлява контейнер на стойности - много подготовка, лесен достъп
 class AttributesContainer:
     def __init__(self, ole, dire):
         self.name = dire.name
         self.properties = []
+        self.dict = {}
         self._load(ole, dire)
+        self._load_dict()
 
     def print(self, value_limit=30, binary_limit=128, with_empty=True):
         heading = self.__class__.__name__
@@ -189,6 +193,15 @@ class AttributesContainer:
                 pv = PropertyValue(tag[0], obuf[pos_+8:pos_+16])
                 prop = ole.enrich_prop(tag[1])
                 self.properties.append(Property(value=pv, prop=prop))
+
+    def _load_dict(self):
+        ino = 1
+        for px in self.properties:
+            pkey = px.prop['propCode']
+            if pkey in self.dict:
+                pkey = '%s.%d' % (pkey, ino)
+                ino += 1
+            self.dict[pkey] = px
 
 
 class Attachment(AttributesContainer):
