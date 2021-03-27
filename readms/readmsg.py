@@ -5,12 +5,15 @@ import re
 from codecs import decode
 from collections import namedtuple
 from struct import unpack_from as unpackb
+import logging
 import click
 
 from .readole import OLE
 from .readutl import uuid_from_buf
 from .readpst import PropertyValue
 from .metapst import enrich_prop_code
+
+log = logging.getLogger(__name__)
 
 # [MS-OXMSG]: Outlook Item (.msg) File Format
 # Описанието на формата се намира на
@@ -57,7 +60,7 @@ class PropertiesStream(OLE):
     def __enter__(self):
         OLE.__enter__(self)
         self._named_map = self._load_named_entries()
-        # XXX да зависи от log.level self._print_named_map()
+        self._debug_named_map()
         return self
 
     def enrich_prop(self, tag):
@@ -122,10 +125,9 @@ class PropertiesStream(OLE):
 
         return {ex_.tag: ex_ for ex_ in result}
 
-    def _print_named_map(self):
+    def _debug_named_map(self):
         for key_ in sorted(self._named_map.keys()):
-            print('%04X ' % key_, end='')
-            print(self._named_map[key_])
+            log.debug('%04X %s', key_, self._named_map[key_])
 
 
 # pylint: disable=too-few-public-methods
