@@ -196,16 +196,16 @@ def uncommpress_rtf(body):
     prefix_ = prefix_.replace("<SP>", chr(0x20))
     prefix_ = prefix_.replace("<CR>", chr(0x0D))
     prefix_ = prefix_.replace("<LF>", chr(0x0A))
-    prefix_ = list(prefix_)
+    prefix_ = bytes(prefix_, 'ASCII')
     wp = len(prefix_)
     prefix_len = wp
-    out = (prefix_len + cb_rawsize) * ["?"]
+    out = (prefix_len + cb_rawsize) * [ord('?')]
     out[:prefix_len] = prefix_
-
     bp, rx_ctrl, rx_run = 16, 0, 0
+
     while True:
         if rx_run % 8 == 0:
-            rx_ctrl = unpackb("<B", body[bp])[0]
+            rx_ctrl = unpackb("<B", body[bp:(bp+1)])[0]
             bp += 1
             if _local_debug > 1:
                 print(format(rx_ctrl, "08b"))
@@ -231,7 +231,7 @@ def uncommpress_rtf(body):
             wp += lx_len
         else:
             # директно копиране
-            ox = unpackb("c", body[bp:(bp+1)])[0]
+            ox = unpackb("B", body[bp:(bp+1)])[0]
             if _local_debug > 1:
                 print("  0 %s %8d [ %c ]" % (11*" ", wp-prefix_len, ox))
             out[wp] = ox
