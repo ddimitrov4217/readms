@@ -153,7 +153,7 @@ props_tags_codes = {}
 for tag_, (tcode, tdesc) in props_tags.items():
     props_tags_codes[tcode] = tag_
 
-# [MS-OXCDATA] Data Structures (selected)
+# [MS-OXCDATA] Data Structures 2.11.1 Property Data Types (selected)
 _prop_types = """\
 0x001F String 0 String of Unicode characters in UTF-16LE
 0x0102 Binary 0 COUNT field followed by that many bytes
@@ -164,6 +164,7 @@ _prop_types = """\
 0x000D Object 0 The property value is a Component Object Model object
 0x0040 Time 8 64-bit integer representing the number
               of 100-nanosecond intervals since January 1, 1601
+0x0048 PtypGuid 16 GUID with Data1, Data2, and Data3 fields in little-endian format
 0x0014 Integer64 8 64-bit integer
 0x101F PtypMultipleString 0 Multiple String
 """

@@ -2,7 +2,6 @@
 # vim:ft=python:et:ts=4:sw=4:ai
 
 import time
-import uuid
 import os
 import pickle
 import logging
@@ -500,6 +499,15 @@ class PropertyValue:
                 value = cls._read_String(pbuf[start_s:])
             result.append(value)
         return result
+
+    @classmethod
+    def _read_PtypGuid(cls, pbuf):
+        # [MS-DTYP] Windows Data Types 2.3.4 GUID and UUID
+        px = (unpackb("<L", pbuf, 0)[0], unpackb("<H", pbuf, 4)[0],
+              unpackb("<H", pbuf, 6)[0], unpackb("<8B", pbuf, 8))
+        fx1 = '%04X-%02X-%02X' % px[:3]
+        fx2 = ('-'.join(('%02X',)*8)) % px[3]
+        return '-'.join((fx1, fx2))
 
     def get_value(self):
         return self._read(self._buf)
