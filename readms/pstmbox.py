@@ -192,7 +192,7 @@ class MboxCacheEntry:
         name, _ex = os.path.splitext(os.path.basename(self._ifile))
         topic_idx = "%s_topic.idx" % name
         topic_idx = os.path.join(self._index_dir, topic_idx)
-        if not os.path.exists(topic_idx):
+        if not self._is_uptodate_index(topic_idx):
             start_ = time()
             log.info("create topic map")
             topic_map = {}
@@ -220,7 +220,7 @@ class MboxCacheEntry:
         name, _ex = os.path.splitext(os.path.basename(self._ifile))
         cat_idx = "%s_categories.idx" % name
         cat_idx = os.path.join(self._index_dir, cat_idx)
-        if not os.path.exists(cat_idx):
+        if not self._is_uptodate_index(cat_idx):
             start_ = time()
             log.info("create categories map")
             cat_nids = []
