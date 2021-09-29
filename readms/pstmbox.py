@@ -105,9 +105,8 @@ class MboxCacheEntry:
         """
 
         order_by = order_by if order_by is not None else 'MessageDeliveryTime'
-        # FIXME Има нещо като кеш, който веднъж прочел нещата вече не ги чете
-        # TODO Трябва този кеш да зависи (да е различен) за различното сортиране
-        nid_list = None  # self._sorted_nid.get(folder)
+        cache_key = folder, order_by, order_reverse
+        nid_list = self._sorted_nid.get(cache_key)
         if nid_list is None:
             nid_list = []
             for nid, nidp in self._message:
@@ -118,7 +117,7 @@ class MboxCacheEntry:
                 nid_list.append((nid, dttm))
 
             nid_list.sort(key=lambda x: (x[1] is None, x[1]), reverse=order_reverse)
-            self._sorted_nid[folder] = nid_list
+            self._sorted_nid[cache_key] = nid_list
 
         result = []
         skipped, nout = 0, 0
