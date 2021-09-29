@@ -18,6 +18,7 @@ from readms.readpst import NDBLayer, PropertyContext
 
 log = logging.getLogger(__name__)
 
+
 # pylint: disable=too-many-instance-attributes
 # Всички атрибути са необхдими за организирането на cache.
 class MboxCacheEntry:
@@ -95,7 +96,7 @@ class MboxCacheEntry:
                 result += 1
         return result
 
-    def list_messages(self, folder, fields, skip=0, page=20):
+    def list_messages(self, folder, fields, skip=0, page=20, order_by=None, order_reverse=True):
         """Връща списъка със съобщения, които са в избраната папка.
 
         Резултатът е списък, елементите на който са tuple (списък)
@@ -103,17 +104,20 @@ class MboxCacheEntry:
         същата последователност.
         """
 
-        nid_list = self._sorted_nid.get(folder)
+        order_by = order_by if order_by is not None else 'MessageDeliveryTime'
+        # FIXME Има нещо като кеш, който веднъж прочел нещата вече не ги чете
+        # TODO Трябва този кеш да зависи (да е различен) за различното сортиране
+        nid_list = None  # self._sorted_nid.get(folder)
         if nid_list is None:
             nid_list = []
             for nid, nidp in self._message:
                 if nidp != folder:
                     continue
                 pc = PropertyContext(self._mbox, nid)
-                dttm = pc.get_value("MessageDeliveryTime")
+                dttm = pc.get_value(order_by)
                 nid_list.append((nid, dttm))
 
-            nid_list.sort(key=lambda x: (x[1] is None, x[1]), reverse=True)
+            nid_list.sort(key=lambda x: (x[1] is None, x[1]), reverse=order_reverse)
             self._sorted_nid[folder] = nid_list
 
         result = []
@@ -448,6 +452,7 @@ class MboxCacheEntry:
         self._search_match_nids = self.categories_index()
         self._index_content()
         return {'nid': self._message[0][1]} if len(self._message) > 0 else None
+
 
 class HiddenField:
     """Скрити полета от съобщенията"""
