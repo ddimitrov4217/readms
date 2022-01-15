@@ -406,6 +406,12 @@ class NodeHeap:
 
     def _get_hid_pos_lx(self, hid):
         hidIndex = get_hid_index(hid)
+        # XXX Не е най-доброто решение; временно, докато не се намери подходящо документация
+        # XXX Сравнително рядко, но доста досадно, индекса е малко по-голям от 2048
+        if hidIndex > 2**11:
+            log.warning('%d: hidIndex: 0x%X; %d', self._nid, hidIndex,
+                        len(self._hn_pagemap["rgibAlloc"]))
+            hidIndex -= 2**11
         assert hidIndex <= 2**11, hidIndex
         # zero based, return pos (buffer position), lx (length)
         return self._hn_pagemap["rgibAlloc"][hidIndex-1]
