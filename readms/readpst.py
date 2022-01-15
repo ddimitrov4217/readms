@@ -509,6 +509,12 @@ class PropertyValue:
         fx2 = ('-'.join(('%02X',)*8)) % px[3]
         return '-'.join((fx1, fx2))
 
+    def _read_Unk1(cls, pbuf):
+        return cls._read_Binary(pbuf)
+
+    def _read_Unk2(cls, pbuf):
+        return cls._read_Binary(pbuf)
+
     def get_value(self):
         return self._read(self._buf)
 
