@@ -167,8 +167,8 @@ _prop_types = """\
 0x0048 PtypGuid 16 GUID with Data1, Data2, and Data3 fields in little-endian format
 0x0014 Integer64 8 64-bit integer
 0x101F PtypMultipleString 0 Multiple String
-0x1102 Unk1 0 Unknown/ undocumented type
-0x1003 Unk2 0 Unknown/ undocumented type
+0x1102 PtypMultipleBinary 0 a COUNT field followed by that many PtypBinary values
+0x1003 PtypMultipleInteger32 0 a COUNT field followed by that many PtypInteger32 values
 """
 prop_types = {}
 for _line in _prop_types.splitlines():

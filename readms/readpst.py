@@ -515,10 +515,18 @@ class PropertyValue:
         fx2 = ('-'.join(('%02X',)*8)) % px[3]
         return '-'.join((fx1, fx2))
 
-    def _read_Unk1(cls, pbuf):
-        return cls._read_Binary(pbuf)
+    @classmethod
+    def _read_PtypMultipleInteger32(cls, pbuf):
+        nobj = unpackb("<L", pbuf)[0]
+        # log.info('read %d int32', nobj)
+        # dump_hex(pbuf)
+        result = []
+        for ix_ in range(nobj):
+            result.append(cls._read_Integer32(pbuf[4*(1+ix_):]))
+        return result
 
-    def _read_Unk2(cls, pbuf):
+    @classmethod
+    def _read_PtypMultipleBinary(cls, pbuf):
         return cls._read_Binary(pbuf)
 
     def get_value(self):
