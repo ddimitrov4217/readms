@@ -352,7 +352,7 @@ class MboxCacheEntry:
 
     def add_tag(self, tag, nid):
         if not self.tags_list.exist_tag(tag):
-            raise KeyError(u"Невалиден маркер [%s]" % tag)
+            raise KeyError("Невалиден маркер [%s]" % tag)
         tx = self._tags.get(tag, None)
         if tx is None:
             tx = self._tags[tag] = set()
@@ -521,7 +521,7 @@ class MboxFilters:
         if os.path.exists(self.file_name):
             with open(self.file_name, "rb") as fin:
                 self.filters = pickle.load(fin)
-        self.opers = dict(A=u"Добави", F=u"Остави само", M=u"Махни")
+        self.opers = dict(A="Добави", F="Остави само", M="Махни")
         self.opers_sort = ["A", "F", "M"]
 
     def append(self, oper, **kwargs):
@@ -569,9 +569,9 @@ class TagsList:
 
     def add_tag(self, code, descr):
         if len(code) == 0:
-            raise ValueError(u"Кода на маркера е задължителен")
+            raise ValueError("Кода на маркера е задължителен")
         if any([x in code for x in whitespace]):
-            raise ValueError(u"Кода на маркера не трябва да съдържа интервали")
+            raise ValueError("Кода на маркера не трябва да съдържа интервали")
         if code in self._tags and (descr is None or len(descr) == 0):
             pass
         else:
@@ -618,7 +618,7 @@ class SearchTextIndex:
     def read(self, file_name):
         with open(file_name, "rb") as fin:
             self._attrs, self.index = pickle.load(fin)
-        log.debug(u"%s", u"прочетен е индекс за търсене с {0:,d} елемента".
+        log.debug("%s", "прочетен е индекс за търсене с {0:,d} елемента".
                   format(len(self.index)))
 
     def create(self, ndb):
@@ -633,7 +633,7 @@ class SearchTextIndex:
                 self._update(PropertyContext(ndb, nid), nid)
         self._sweep_analyze()
         self._debug_index()
-        log.info(u"%s", u"индексирането за търсене завърши за {0:,.3f} сек.".
+        log.info("%s", "индексирането за търсене завърши за {0:,.3f} сек.".
                  format(time()-start))
 
     def _update(self, pc, nid):
@@ -689,8 +689,8 @@ class SearchTextIndex:
         for ix in self.index.values():
             nids.update(ix)
         len_nids = len(nids)
-        log.debug(u"%s", u"елементи в индекса: {0:,d}".format(len(self.index)))
-        log.debug(u"%s", u"индексирани съобщения: {0:,d}".format(len_nids))
+        log.debug("%s", "елементи в индекса: {0:,d}".format(len(self.index)))
+        log.debug("%s", "индексирани съобщения: {0:,d}".format(len_nids))
 
         s1, s2 = set(), 0
         for nx, ix in self.index.items():
@@ -699,12 +699,12 @@ class SearchTextIndex:
                 s1.add((nx, lx))
             s2 = max(s2, lx)
 
-        log.debug("%s", u"брой неселективни думи: {0:,d}".format(len(s1)))
+        log.debug("%s", "брой неселективни думи: {0:,d}".format(len(s1)))
         if log.isEnabledFor(logging.DEBUG):
             for word, lx in s1:
-                log.debug("    %s", u"{0} ({1:,d}) ({2:,.3f})".
+                log.debug("    %s", "{0} ({1:,d}) ({2:,.3f})".
                           format(word, lx, 1.0*lx/len_nids))
-        log.debug("%s", u"най-дълъг индекс: {0:,d}".format(s2))
+        log.debug("%s", "най-дълъг индекс: {0:,d}".format(s2))
 
     def _debug_index(self):
         if log.isEnabledFor(logging.DEBUG):
