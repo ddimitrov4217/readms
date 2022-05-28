@@ -14,9 +14,9 @@ def dump_hex(buf, lx=16, out=None):
     b1 = []
     for x in buf.tolist():
         if bn % lx == 0:
-            out.write("%08X " % bn)
-        out.write("%02X" % x)
-        out.write('-' if bn%8==7 and bn%lx!=lx-1 else ' ')
+            out.write(f"{bn:08X} ")
+        out.write(f"{x:02X}")
+        out.write('-' if bn % 8 == 7 and bn % lx != lx-1 else ' ')
         if 32 <= x < 128:
             b1.append(chr(x))
         else:
@@ -31,6 +31,7 @@ def dump_hex(buf, lx=16, out=None):
         out.write("".join(b1))
         out.write("\n")
     out.write("\n")
+
 
 # 5.1 Permutative Encoding
 _mpbbCrypt = [
@@ -98,7 +99,7 @@ class UnpackDesc:
             px = strmap[typz]
             if size is not None:
                 cnt = int(size)
-                typz = "%d%s" % (cnt, px,)
+                typz = f"{cnt}{px}"
             else:
                 cnt = 1
                 typz = px
@@ -110,7 +111,7 @@ class UnpackDesc:
     @staticmethod
     def struct_model(desc):
         sd = UnpackDesc.struct_map(desc)
-        stf = "<%s" % "".join([stz for _, stz, _ in sd])
+        stf = f"<{''.join([stz for _, stz, _ in sd])}"
         return (stf, calcsize(stf),
                 tuple([(name, size) for name, _, size in sd]))
 
@@ -137,7 +138,7 @@ class UnpackDesc:
 
     def unpack2(self, desc):
         sd = UnpackDesc.struct_map(desc)
-        for nm, stf in [(nm, "<%s" % stz,) for nm, stz, _ in sd]:
+        for nm, stf in [(nm, f"<{stz}") for nm, stz, _ in sd]:
             data = unpackb(stf, self.buf, self.pos)
             if len(data) == 1:
                 self.out.append((nm, data[0]))
@@ -162,6 +163,7 @@ def run_profile(fun, *argv, **kwargv):
 def ulong_from_tuple(value):
     return sum(256**x*y for x, y in zip((0, 1, 2, 3), value))
 
+
 def uuid_from_buf(buf):
     # NOTE с параметъра bytes_le нещо не работи
     fx1 = unpackb("<LHHBB6B", buf)
@@ -169,6 +171,7 @@ def uuid_from_buf(buf):
     fx5 = zip(range(5, -1, -1), fx1[5:])
     fx6.append(sum(256**x*y for x, y in fx5))
     return UUID(fields=fx6)
+
 
 def uncommpress_rtf(body):
     # [MS-OXRTFCP] http://download.microsoft.com/download/5/D/D/
@@ -248,7 +251,7 @@ def test_compressed_rtf(test_fnm):
         print("test_file:", fnm, end='')
         fnm_out = os.path.basename(fnm).rsplit(".", 1)
         fnm_out = fnm_out[0]
-        fnm_out = os.path.join(os.path.dirname(fnm), "%s.rtf" % fnm_out)
+        fnm_out = os.path.join(os.path.dirname(fnm), f"{fnm_out}.rtf")
         with open(fnm, "rb") as fin:
             body = memoryview(bytearray(fin.read()))
             out = uncommpress_rtf(body)

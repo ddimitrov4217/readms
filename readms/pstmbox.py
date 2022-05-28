@@ -52,9 +52,8 @@ class MboxCacheEntry:
             self._index_content()
             # pylint: disable=protected-access
             # тук е само за logging
-            done_sec = "in {0:,.3f} sec".format(self._mbox._done_time)
-            stat_info = "nbbt={0:,d}, nnbt={1:,d}".format(
-                len(self._mbox._bbt), len(self._mbox._nbt))
+            done_sec = f"in {self._mbox._done_time:#,.3f} sec"
+            stat_info = f"nbbt={len(self._mbox._bbt):#,d}, nnbt={len(self._mbox._nbt):#,d}"
             log.info("done %s, %s", done_sec, stat_info)
         self._since = datetime.now()
 
@@ -173,7 +172,7 @@ class MboxCacheEntry:
         if att_name is not None:
             filename = pa.get_value(att_name)
         else:
-            filename = "attachemnt_%d_%d" % (nid, anid)
+            filename = f"attachemnt_{nid}_{anid}"
         att = pa.get_value("AttachDataObject")
         return self._mime_type(pa), filename, att.data
 
@@ -193,7 +192,7 @@ class MboxCacheEntry:
         if self._topic is not None:
             return self._topic
         name, _ex = os.path.splitext(os.path.basename(self._ifile))
-        topic_idx = "%s_topic.idx" % name
+        topic_idx = f"{name}_topic.idx"
         topic_idx = os.path.join(self._index_dir, topic_idx)
         if not self._is_uptodate_index(topic_idx):
             start_ = time()
@@ -212,7 +211,7 @@ class MboxCacheEntry:
 
             with open(topic_idx, "wb") as fout:
                 pickle.dump(topic_map, fout, pickle.HIGHEST_PROTOCOL)
-            done_sec = "done in {0:,.3f} sec".format(time()-start_)
+            done_sec = f"done in {time()-start_:#,.3f} sec"
             log.info(done_sec)
             return topic_map
 
@@ -221,7 +220,7 @@ class MboxCacheEntry:
 
     def categories_index(self):
         name, _ex = os.path.splitext(os.path.basename(self._ifile))
-        cat_idx = "%s_categories.idx" % name
+        cat_idx = f"{name}_categories.idx"
         cat_idx = os.path.join(self._index_dir, cat_idx)
         if not self._is_uptodate_index(cat_idx):
             start_ = time()
@@ -235,7 +234,7 @@ class MboxCacheEntry:
 
             with open(cat_idx, "wb") as fout:
                 pickle.dump(cat_nids, fout, pickle.HIGHEST_PROTOCOL)
-            log.info("done in {0:,.3f} sec".format(time()-start_))
+            log.info(f"done in {(time()-start_):#,.3f} sec")
 
         with open(cat_idx, "rb") as fin:
             return pickle.load(fin)
@@ -270,14 +269,13 @@ class MboxCacheEntry:
                 result.append((nid_, nidp_, dttm))
 
         result.sort(key=lambda x: x[2], reverse=True)
-        done_sec = "{1:,d} item(s) in {0:,.3f} sec".format(
-            time()-start_, len(result))
+        done_sec = f"{len(result):,d} item(s) in {time()-start_:#,.3f} sec"
         log.info(done_sec)
         return result
 
     def _tags_filename(self):
         name, _ex = os.path.splitext(os.path.basename(self._ifile))
-        tags_idx = "%s_tags.idx" % name
+        tags_idx = f"{name}_tags.idx"
         return os.path.join(self._index_dir, tags_idx)
 
     def _load_tags(self):
@@ -326,7 +324,7 @@ class MboxCacheEntry:
         """
 
         name, _ex = os.path.splitext(os.path.basename(self._ifile))
-        msgids_idx = "%s_msgids.idx" % name
+        msgids_idx = f"{name}_msgids.idx"
         msgids_fnm = os.path.join(self._index_dir, msgids_idx)
         if self._is_uptodate_index(msgids_fnm):
             with open(msgids_fnm, "rb") as fin:
@@ -346,13 +344,12 @@ class MboxCacheEntry:
             with open(msgids_fnm, "wb") as fout:
                 pickle.dump(self._msgids, fout, pickle.HIGHEST_PROTOCOL)
 
-            done_sec = "index {1:,d} messages(s) in {0:,.3f} sec".format(
-                time()-start_, len(self._msgids))
+            done_sec = f"index {len(self._msgids):#,d} messages(s) in {time()-start_:#,.3f} sec"
             log.info(done_sec)
 
     def add_tag(self, tag, nid):
         if not self.tags_list.exist_tag(tag):
-            raise KeyError("Невалиден маркер [%s]" % tag)
+            raise KeyError(f"Невалиден маркер [{tag}]")
         tx = self._tags.get(tag, None)
         if tx is None:
             tx = self._tags[tag] = set()
@@ -383,7 +380,7 @@ class MboxCacheEntry:
 
         if self._search_index is None:
             name, _ex = os.path.splitext(os.path.basename(self._ifile))
-            search_idx = "%s_search_body.idx" % name
+            search_idx = f"{name}_search_body.idx"
             search_idx = os.path.join(self._index_dir, search_idx)
 
             if not self._is_uptodate_index(search_idx) or refresh:
@@ -494,7 +491,7 @@ class MimeData:
                 continue
             name = part.get_param("name")
             if name is None:
-                name = "part_%i" % ono
+                name = f"part_{ono}"
                 ono += 1
             else:
                 name, enc = email_header.decode_header(name)[0]
@@ -607,7 +604,7 @@ class SearchTextIndex:
         self._min_len = _min_len
         self._stop_words = set()
         # само истински думи - с букви
-        self._words_split_re = '([a-zA-Zа-яА-Я]{%d,})' % self._min_len
+        self._words_split_re = f'([a-zA-Zа-яА-Я]{{{self._min_len},}})'
         self._words_split_re = re.compile(self._words_split_re, re.MULTILINE | re.UNICODE)
 
     def save(self, file_name):
@@ -618,8 +615,7 @@ class SearchTextIndex:
     def read(self, file_name):
         with open(file_name, "rb") as fin:
             self._attrs, self.index = pickle.load(fin)
-        log.debug("%s", "прочетен е индекс за търсене с {0:,d} елемента".
-                  format(len(self.index)))
+        log.debug("%s", f"прочетен е индекс за търсене с {len(self.index):#,d} елемента")
 
     def create(self, ndb):
         self._stop_words = self._load_stop_words()
@@ -633,8 +629,7 @@ class SearchTextIndex:
                 self._update(PropertyContext(ndb, nid), nid)
         self._sweep_analyze()
         self._debug_index()
-        log.info("%s", "индексирането за търсене завърши за {0:,.3f} сек.".
-                 format(time()-start))
+        log.info("%s", f"индексирането за търсене завърши за {time()-start:#,.3f} сек.")
 
     def _update(self, pc, nid):
         for attr in self._attrs:
@@ -678,10 +673,10 @@ class SearchTextIndex:
                     if len(line_) == 0 or line_.startswith("#"):
                         continue
                     result.add(line_)
-            log.info("заредени са {0:,d} stop words".format(len(result)))
+            log.info(f"заредени са {len(result):#,d} stop words")
             return result
         except IOError:
-            log.warning('няма файл %s', resource_fnm)
+            log.warning(f'няма файл {resource_fnm}')
             return set()
 
     def _sweep_analyze(self):
@@ -689,8 +684,8 @@ class SearchTextIndex:
         for ix in self.index.values():
             nids.update(ix)
         len_nids = len(nids)
-        log.debug("%s", "елементи в индекса: {0:,d}".format(len(self.index)))
-        log.debug("%s", "индексирани съобщения: {0:,d}".format(len_nids))
+        log.debug("%s", f"елементи в индекса: {len(self.index):#,d}")
+        log.debug("%s", f"индексирани съобщения: {len_nids:#,d}")
 
         s1, s2 = set(), 0
         for nx, ix in self.index.items():
@@ -699,12 +694,11 @@ class SearchTextIndex:
                 s1.add((nx, lx))
             s2 = max(s2, lx)
 
-        log.debug("%s", "брой неселективни думи: {0:,d}".format(len(s1)))
+        log.debug("%s", f"брой неселективни думи: {len(s1):#,d}")
         if log.isEnabledFor(logging.DEBUG):
             for word, lx in s1:
-                log.debug("    %s", "{0} ({1:,d}) ({2:,.3f})".
-                          format(word, lx, 1.0*lx/len_nids))
-        log.debug("%s", "най-дълъг индекс: {0:,d}".format(s2))
+                log.debug("    %s", "{word} ({lx:#,d}) ({1.0*lx/len_nids:#,.3f})")
+        log.debug("%s", f"най-дълъг индекс: {s2:#,d}")
 
     def _debug_index(self):
         if log.isEnabledFor(logging.DEBUG):

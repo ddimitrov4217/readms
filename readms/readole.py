@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-cfb/
 # https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-CFB/[MS-CFB].pdf
 
+
 class OLE:
     # pylint: disable=attribute-defined-outside-init
     # Тъй като има много атрибути за четене и парзване и създаване на структури, за прегледност
@@ -92,7 +93,7 @@ class OLE:
                 continue
             self._seek_sector(sid)
             b0 = self._fin.read(self._lssize)
-            sc = unpackb("<%dl" % (self._lssize/4), b0, 0)
+            sc = unpackb(f"<{self._lssize//4:#d}l", b0, 0)
             self._fat_map.extend(sc)
         self._fat_map = tuple(self._fat_map)
         # log.debug('FATs map: %s', self._fat_map)
@@ -102,7 +103,7 @@ class OLE:
         for sid in self._chain_fat(self._mfat_fsid):
             self._seek_sector(sid)
             b0 = self._fin.read(self._lssize)
-            sc = unpackb("<%dl" % (self._lssize/4,), b0, 0)
+            sc = unpackb(f"<{self._lssize//4:#d}l", b0, 0)
             self._minifat_map.extend(sc)
         self._minifat_map = tuple(self._minifat_map)
         # log.debug('Mini FATs map: %s', self._minifat_map)
@@ -189,7 +190,7 @@ class OLE:
             name_sz = unpackb("<h", buf, pos+64)[0]
             self.name = decode(buf[pos:pos+name_sz], "UTF16")
             self._type = unpackb("<1B", buf, pos+66)[0]
-            self.type_name = { 0: 'Unknown', 1: 'Storage', 2: 'Stream', 5: 'Root' }[self._type]
+            self.type_name = {0: 'Unknown', 1: 'Storage', 2: 'Stream', 5: 'Root'}[self._type]
             log.debug('DIRE [%d] type/name: %d: %s', self.id, self._type, self.name)
 
             self._sibs = OLE.Sibling(left=unpackb("<l", buf, pos+68)[0],
@@ -256,7 +257,7 @@ class OLE:
 
     def dire_read(self, dire):
         if dire._size >= self._max_ssize or dire.id == 0:
-            return self._read_by_fat(dire, root=dire.id==0)
+            return self._read_by_fat(dire, root=dire.id == 0)
         return self._read_by_minifat(dire)
 
 
@@ -286,9 +287,9 @@ def test_dire(file, dirs=False, start=0):
                 max_level = level
 
         for level, dire in trip_list:
-            print('%s[%3d] %-32s%s %7d (%s)' %
-                  (' '*2*level, dire.id, dire.name, ' '*2*(max_level-level),
-                   dire._size, dire.type_name))
+            print(f"{' '*2*level}[{dire.id:#3d}] "
+                  f"{dire.name:32s}{' '*2*(max_level-level):>s} "
+                  f"{dire._size:#9,d} ({dire.type_name})")
 
 
 @cli.command('dump', help='Извежда binary съдържанието на OLE контейнер')
@@ -298,7 +299,7 @@ def test_content(file, maxlen=512):
     def test_read(ole, stream_name, maxlen=maxlen):
         dire = ole.dire_find(stream_name)
         obuf = ole.dire_read(dire)
-        print("%s, len=%d" % (stream_name, len(obuf)))
+        print(f"{stream_name}, len={len(obuf):#d}")
         dump_hex(obuf[:maxlen])
 
     with OLE(file) as ole:

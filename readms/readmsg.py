@@ -26,6 +26,7 @@ prop_name_pattern = re.compile(
 
 Property = namedtuple('Property', ['value', 'prop'])
 
+
 def print_property(pc, value_limit=30, binary_limit=128, with_empty=True):
     value_type, value_def_size, _ = pc.value.pt_desc
     value_size = len(pc.value._buf)
@@ -33,13 +34,13 @@ def print_property(pc, value_limit=30, binary_limit=128, with_empty=True):
     if value_size == 0 and not with_empty:
         return
 
-    print("0x%04X %-10s %4d %6d %-40s" % (
-        pc.prop['propTag'], value_type, value_def_size,
-        value_size, pc.prop['propCode'], ), end='')
+    print(f"{pc.prop['propTag']:#04X} {value_type:10s} "
+          f"{value_def_size:#4d} {value_size:#6d} {pc.prop['propCode']:#40s}",
+          end='')
 
     if value_type != 'Binary':
         value = pc.value.get_value()
-        value = value if len(str(value)) <= value_limit else '\n%s\n' % value
+        value = value if len(str(value)) <= value_limit else f'\n{value}\n'
         print(value, end='')
     else:
         if binary_limit == 0:
@@ -100,7 +101,7 @@ class PropertiesStream(OLE):
                     # 2.2.3.1.2.1 Index and Kind Information
                     prop_ix = unpackb("<H", obuf, pos+6)[0]  # Property Index
                     guid_ix = unpackb("<H", obuf, pos+4)[0]  # GUID Index
-                    entry_stream.append((name_ix, guid_ix>>1, guid_ix&0x1, prop_ix))
+                    entry_stream.append((name_ix, guid_ix >> 1, guid_ix & 0x1, prop_ix))
 
             if dire_.name.startswith('__substg1.0_00040102'):
                 # 2.2.3.1.3 String Stream - имената на атрибутите, само буфера е достатъчен
@@ -150,7 +151,7 @@ class AttributesContainer:
     @staticmethod
     def _sort_props_key(x):
         code = x.prop['propCode']
-        return code if not code.startswith('0x') else 'zzz-%s' % code
+        return code if not code.startswith('0X') else f'zzz-{code}'
 
     def _load(self, ole, dire):
         for dire_ in ole.dire_childs(dire.id):
@@ -170,7 +171,6 @@ class AttributesContainer:
         pv = PropertyValue(ptype, ole.dire_read(dire))
         self.properties.append(Property(value=pv, prop=prop))
 
-
     def _load_fixed_length(self, ole, dire):
         if not dire.name.startswith('__properties_version1.0'):
             return
@@ -186,7 +186,7 @@ class AttributesContainer:
 
         obuf = ole.dire_read(dire)
         for pos_ in range(data_offset, len(obuf)-data_offset, 16):
-            tag = list(unpackb("<HH", obuf, pos_)) # Property Tag (type, code)
+            tag = list(unpackb("<HH", obuf, pos_))  # Property Tag (type, code)
             # 2.4.2.2 Variable Length Property or Multiple-Valued Property Entry
             # за тези с променлива дължина, стойността е размера на истинската стойност,
             # което не си заслужава да се проверява със зареденото в предишния if блок
@@ -201,7 +201,7 @@ class AttributesContainer:
         for px in self.properties:
             pkey = px.prop['propCode']
             if pkey in self.dict:
-                pkey = '%s.%d' % (pkey, ino)
+                pkey = f'{pkey}.{ino}'
                 ino += 1
             self.dict[pkey] = px
 

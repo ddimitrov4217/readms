@@ -41,10 +41,10 @@ def merge_tags(ctx, archive, pstpath):
             yield fnm.replace("_tags.idx", "")
 
     def apply_tags_file(mbox_name):
-        mbox_file = path.join(pstpath, "%s.pst" % mbox_name)
+        mbox_file = path.join(pstpath, f"{mbox_name}.pst")
         # TODO Да работи директно с архивирания файл
-        msgids_import = path.join(archive, "%s_msgids.idx" % mbox_name)
-        tags_import = path.join(archive, "%s_tags.idx" % mbox_name)
+        msgids_import = path.join(archive, f"{mbox_name}_msgids.idx")
+        tags_import = path.join(archive, f"{mbox_name}_tags.idx")
         if (not path.exists(msgids_import) or
                 not path.exists(tags_import) or
                 not path.exists(mbox_file)):
@@ -60,7 +60,7 @@ def merge_tags(ctx, archive, pstpath):
         mx = None  # lazy отваряне, за по-бързо ако няма маркери
         target_msgids = None
         for tag, nids in tags.iteritems():
-            print("за маркер [%s], %d nid(s)" % (tag, len(nids)))
+            print(f"за маркер [{tag}], {len(nids):,d} nid(s)")
             for nid in nids:
                 msgid = msgids.get(nid, None)
                 if msgid is not None:

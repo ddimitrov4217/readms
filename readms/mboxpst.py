@@ -71,7 +71,7 @@ def list_content(ndb, params):
     if params.save:
         bnm = path.basename(params.pstfile).split(".")[0]
         dnm = path.dirname(params.pstfile)
-        out = codecs.open(path.join(dnm, "%s_list.txt" % bnm), "w+", "UTF-8")
+        out = codecs.open(path.join(dnm, f"{bnm}_list.txt"), "w+", "UTF-8")
     else:
         out = stdout
 
@@ -84,7 +84,7 @@ def list_content(ndb, params):
                 continue
             pc = PropertyContext(ndb, nx["nid"])
             if not params.profile:
-                print("%9d %7d" % (nx["nid"], nx["nidParent"]), file=out, end='')
+                print(f'{nx["nid"]:#9d} {nx["nidParent"]:#7d}', file=out, end='')
             for code, fmt in fields:
                 value = pc.get_value(code)
                 if not params.profile:
@@ -108,7 +108,7 @@ def list_content(ndb, params):
             p2 = pc.get_value(pc.alt_name("DisplayName", "AttachFilename"))
             p2 = p2 or '--липсва--'
             if not params.profile:
-                print("{0:9d} {1:7d} {2:12,d} {3:<20}".format(nid, hnid, p1, p2), file=out)
+                print(f"{nid:#9d} {hnid:#7d} {p1:#12,d} {p1:<20}", file=out)
 
 
 def print_messages(ndb, params):
@@ -118,11 +118,11 @@ def print_messages(ndb, params):
         bnm = path.basename(params.pstfile).split(".")[0]
         dnm = path.dirname(params.pstfile)
         if params.save:
-            out = codecs.open(path.join(dnm, "%s_%d.txt" % (bnm, nid)), "w+", "UTF-8")
+            out = codecs.open(path.join(dnm, f"{bnm}_{nid}.txt"), "w+", "UTF-8")
         else:
             out = stdout
         if params.save or params.with_attachments:
-            odir = path.join(dnm, "%s_%d" % (bnm, nid))
+            odir = path.join(dnm, f"{bnm}_{nid}")
             if not path.exists(odir):
                 mkdir(odir)
 
@@ -144,14 +144,14 @@ def print_messages(ndb, params):
                     dump_hex(value_buf, out=outx)
                     value = outx.getvalue().strip()
             if not params.profile:
-                print("0x%04X %-10s %4d %6d %-40s" % (
-                    k, pt_code, pt_size, len(value_buf), ptag, ), file=out, end='')
+                print(f"{k:#04X} {pt_code:10s} {pt_size:#4d} "
+                      f"{len(value_buf):#6d} {ptag:40s}", file=out, end='')
                 if pt_code == "Binary":
                     if params.with_binary:
                         if params.save:
                             if (not ptag.startswith("0x") and
                                     len(value.data) > params.binary_limit):
-                                onm = path.join(odir, "%s.out" % (ptag,))
+                                onm = path.join(odir, f"{ptag}.out")
                                 with open(onm, "wb+") as fout:
                                     fout.write(value.data)
                                 print(file=out)
@@ -163,9 +163,9 @@ def print_messages(ndb, params):
                         print(file=out)
                         continue
                 if value is not None and len(str(value)) >= 30:
-                    print("\n%s\n" % value, file=out)
+                    print(f"\n{value}\n", file=out)
                 else:
-                    print("[%s]" % value, file=out)
+                    print(f"[{value}]", file=out)
         if not params.profile:
             print(file=out)
 
@@ -176,8 +176,7 @@ def print_messages(ndb, params):
                                        "AttachFilename")
                 att_name = pa.get_value(att_name)
                 if not params.profile:
-                    print("{0:10,d} {1:<60s}".format(
-                        pa.get_value("AttachSize"), att_name), file=out)
+                    print(f'{pa.get_value("AttachSize"):#,10d} {att_name:<60s}', file=out)
                 att = pa.get_value("AttachDataObject")
                 if not params.profile:
                     with open(path.join(odir, att_name), "wb+") as fout:

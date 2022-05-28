@@ -495,7 +495,7 @@ def enrich_prop_code(props):
     for prop in props:
         tag = prop["propTag"]
         tag_info = all_props_types.get(tag, None)
-        tag_code = tag_info["name"] if tag_info is not None else "0x%04X" % tag
+        tag_code = tag_info["name"] if tag_info is not None else f"{tag:#04X}"
         prop["propCode"] = tag_code
 
 
@@ -531,7 +531,7 @@ def parse_ms_oxprops(_silent=False, _maintain=False):
         try:
             data = get_data("readms.metapst", resource_fnm).decode('cp1251')
         except IOError:
-            yield "END", "Missing %s" % resource_fnm
+            yield "END", f"Missing {resource_fnm}"
             return
 
         if data is not None:
@@ -552,7 +552,7 @@ def parse_ms_oxprops(_silent=False, _maintain=False):
                     break
                 if not in_range:
                     continue
-                if _line.startswith("2.%d " % next_id):
+                if _line.startswith(f"2.{next_id} "):
                     _, name = _line.split(" ", 1)
                     yield "PROP", (name, )
                     next_id += 1
@@ -563,7 +563,7 @@ def parse_ms_oxprops(_silent=False, _maintain=False):
                 else:
                     if in_cont:
                         desc = " ".join((desc, _line))
-            yield "END", "Successfuly loaded %s" % resource_fnm
+            yield "END", f"Successfuly loaded {resource_fnm}"
 
     parsed_prop_types = []
     result = {}
@@ -579,8 +579,8 @@ def parse_ms_oxprops(_silent=False, _maintain=False):
             if _maintain and prop is not None:
                 for px_ in parsed_prop_types:
                     if px_['name'] == name:
-                        print('Name already defined: [%s] dup [%s]' % (name, info[0]))
-                        print('  %s\n' % px_)
+                        print(f'Name already defined: [{name}] dup [{info[0]}]')
+                        print(f'  {px_}\n')
                         continue
 
             prop = dict(name=name)
@@ -593,17 +593,17 @@ def parse_ms_oxprops(_silent=False, _maintain=False):
                 dx = {int(x[id_name], 16): x for x in parsed_prop_types if id_name in x}
                 result.update(dx)
                 if not _silent:
-                    print("%5d hashed by %s" % (len(dx), id_name))
+                    print(f"{len(dx):#5d} hashed by {id_name}")
             if not _silent:
                 print(info)
-                print("%5d properties found" % len(parsed_prop_types))
+                print(f"{len(parsed_prop_types):#5d} properties found")
             id_names = ("Property long ID (LID)", "Property ID")
             for id_name in id_names:
                 append_desc(id_name)
             if not _silent:
                 lost = [x["name"] for x in parsed_prop_types
                         if all([(z not in x) for z in id_names])]
-                print("%5d lost for no ID defined" % len(lost))
+                print(f"{len(lost):#5d} lost for no ID defined")
 
             # Това се пуска за разследване на повторения на кодовете на таговете
             # Има някои, които не си отговарят добре на името и типа на данните
@@ -625,14 +625,15 @@ def parse_ms_oxprops(_silent=False, _maintain=False):
                     if len(dups) > 0 and px_[0] not in dups_found:
                         dups.insert(0, px_)
                         for dup_ in dups:
-                            print('%04X %d %s' % dup_)
+                            print(f'{dup_[0]:#04X} {dup_[1]} {dup_[2]}')
                         dups_found.add(px_[0])
                         print()
                 print(len(dups_found), 'entries: ', end='')
                 for dup_ in dups_found:
-                    print('%04X ' % dup_, end='')
+                    print(f'{dup_:#04X} ', end='')
                 print()
 
     return result
+
 
 all_props_types = parse_ms_oxprops(_silent=False, _maintain=False)

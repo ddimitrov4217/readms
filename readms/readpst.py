@@ -107,7 +107,7 @@ class NDBLayer:
         bname = os.path.basename(self._file_name)
         dname = os.path.dirname(self._file_name)
         name, _ext = os.path.splitext(bname)
-        iname = "%s.idx" % name
+        iname = f"{name}.idx"
         if self._index_dir is not None:
             if not os.path.exists(self._index_dir):
                 os.makedirs(self._index_dir)
@@ -160,7 +160,7 @@ class NDBLayer:
         eng.skip(128)  # skip rgbFPMap byte[128] Deprecated FPMap
         eng.unpack(HEADER_2)
 
-        assert eng.pos == len(buf), "pos=%d, len=%d" % (eng.pos, len(buf))
+        assert eng.pos == len(buf), f"pos={eng.pos:d}, len={len(buf):d}"
         self._header, h2 = eng.out
         self._header.update(h2)
         assert self._header["dwMagic"] == (0x21, 0x42, 0x44, 0x4E)
@@ -194,7 +194,7 @@ class NDBLayer:
         if type_desc is not None:
             ex["typeCode"] = type_desc[0]
         else:
-            ex["typeCode"] = "0x%04X" % ex["type"]
+            ex["typeCode"] = f"{ex['type']:#04X}"
 
     def _read_nbt(self, bref):
         nbt = read_ndb_page(self._fin, bref)
@@ -294,7 +294,7 @@ class NDBLayer:
                 sign, pos = self._read_block_sign(data)
                 assert sign["btype"] == 1
                 icb = unpackb("<L", data, pos)[0]
-                bids = unpackb("<%dQ" % sign["cEnt"], data, pos+4)
+                bids = unpackb(f"<{sign['cEnt']}Q", data, pos+4)
                 if sign["cLevel"] == 1:  # XBLOCK
                     data_bids.extend(bids)
                     return icb
@@ -398,7 +398,7 @@ class NodeHeap:
 
     def _dump_HN_HDR(self, bx, title=None):
         # dump_hex(buf)
-        print("\n%s::heap_on_node:" % title)
+        print(f"\n{title}::heap_on_node:")
         pprint((self._hn_header, self._hn_pagemap), indent=4)
         print()
         for pos, lx in self._hn_pagemap["rgibAlloc"]:
@@ -409,8 +409,8 @@ class NodeHeap:
         # XXX Не е най-доброто решение; временно, докато не се намери подходящо документация
         # XXX Сравнително рядко, но доста досадно, индекса е малко по-голям от 2048
         if hidIndex > 2**11:
-            log.warning('%d: hidIndex: 0x%X; %d', self._nid, hidIndex,
-                        len(self._hn_pagemap["rgibAlloc"]))
+            log.warning(f'{self._nid}: hidIndex: {hidIndex:#%X}; '
+                        f'{len(self._hn_pagemap["rgibAlloc"])}')
             hidIndex -= 2**11
         assert hidIndex <= 2**11, hidIndex
         # zero based, return pos (buffer position), lx (length)
@@ -429,9 +429,9 @@ class PropertyValue:
     def __init__(self, pt, pbuf=None):
         self._pt = pt
         self._buf = pbuf
-        unk_pt = ("0x%04X" % self._pt, "UNKNOWN", -1, None)
+        unk_pt = (f"{self._pt:#04X}", "UNKNOWN", -1, None)
         self.pt_desc = prop_types.get(self._pt, unk_pt)
-        pt_method = "_read_%s" % self.pt_desc[0]
+        pt_method = f"_read_{self.pt_desc[0]}"
         self._read = getattr(self, pt_method)
 
     class BinaryValue:
@@ -684,8 +684,8 @@ def test_ndb_info(ndb):
     print("="*60, "\nNDB Layer info\n")
     h1 = {a: b for a, b in ndb._header.items()
           if a in ("ibFileEof", "brefNBT", "brefBBT", "bCryptMethod")}
-    print("{0:,d} bytes".format(sum(x["cb"] for x in ndb._bbt)), end=' ')
-    print("in {0:,d} blocks by {1:,d} nids".format(len(ndb._bbt), len(ndb._nbt)))
+    print(f"{sum(x['cb'] for x in ndb._bbt):,d} bytes", end=' ')
+    print(f"in {len(ndb._bbt):,d} blocks by {len(ndb._nbt):,d} nids")
     pprint(h1, indent=4)
     print()
     nid_type_cnt = {}
@@ -710,7 +710,7 @@ def test_ndb_info(ndb):
         kt.sort()
         for nm in kt:
             cnt, size = tab[nm]
-            print("  {0:<30s} {1:>7,d} {2:>12,d}".format(nm, cnt, size))
+            print(f"  {nm:<30s} {cnt:>7,d} {size:>12,d}")
         print()
 
     for nx in ndb._nbt:
@@ -721,7 +721,7 @@ def test_ndb_info(ndb):
                 append_tab_entry(sub_nid_type_cnt, snx, nx)
     print_tab(nid_type_cnt, "Top level")
     print_tab(sub_nid_type_cnt, "Subnodes, o.w.")
-    print("done in {0:,.3f} sec".format(ndb._done_time))
+    print(f"done in {ndb._done_time:,.3f} sec")
     print()
 
 
@@ -744,12 +744,12 @@ def test_PC(ndb, nid, hnid=None, _max_binary_len=512):
             out = StringIO()
             dump_hex(value_buf[:_max_binary_len], out=out)
             value = out.getvalue().strip()
-        print("0x%04X %-10s %4d %6d %-40s" % (
-            k, pt_code, pt_size, len(value_buf), ptag, ), end='')
+        print(f"{k:#04X} {pt_code:10s} {pt_size:4d} "
+              f"{len(value_buf):6d} {ptag:40s}", end='')
         if value is not None and len(str(value)) >= 30:
-            print("\n%s\n" % value)
+            print(f"\n{value}\n")
         else:
-            print("[%s]" % value)
+            print(f"[{value}]")
     print()
 
 
