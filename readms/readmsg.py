@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
+from sys import argv
 import re
 from codecs import decode
 from collections import namedtuple
@@ -275,7 +276,6 @@ def test_read_message(file, with_empty=False, binary_limit=0):
 
 
 def test():
-    from sys import argv
     file_name_ = argv[1]
     # test_content(file_name_)
     test_read_message(file_name_)

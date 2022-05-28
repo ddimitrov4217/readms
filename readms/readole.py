@@ -1,7 +1,9 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
+from sys import argv
 from os import path
+from traceback import print_exc
 from collections import namedtuple
 import re
 import logging
@@ -45,7 +47,6 @@ class OLE:
         try:
             self._fin.close()
         except:
-            from traceback import print_exc
             print_exc()
         return False
 
@@ -309,7 +310,6 @@ def test_content(file, maxlen=512):
 
 
 def test():
-    from sys import argv
     log.setLevel('DEBUG')
     file_name_ = argv[1]
     # test_ole(file_name_)

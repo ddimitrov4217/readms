@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 from time import time
 from string import whitespace
+from codecs import open as open_enc
 from pkgutil import get_data
 
 import hashlib
@@ -702,7 +703,6 @@ class SearchTextIndex:
 
     def _debug_index(self):
         if log.isEnabledFor(logging.DEBUG):
-            from codecs import open as open_enc
             with open_enc("search_index_debug.txt", "wb", "UTF-8") as fout:
                 for ex, nids in self.index.items():
                     print(ex, nids, file=fout)

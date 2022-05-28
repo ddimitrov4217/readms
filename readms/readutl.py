@@ -3,12 +3,14 @@
 
 import re
 import os
+from sys import stdout, argv as argv_
 from struct import unpack_from as unpackb, calcsize
 from uuid import UUID
+from cProfile import Profile
+from pstats import Stats
 
 
 def dump_hex(buf, lx=16, out=None):
-    from sys import stdout
     out = out or stdout
     bn = 0
     b1 = []
@@ -148,8 +150,6 @@ class UnpackDesc:
 
 
 def run_profile(fun, *argv, **kwargv):
-    from cProfile import Profile
-    from pstats import Stats
     prof = Profile()
     prof.enable()
     result = fun(*argv, **kwargv)
@@ -270,5 +270,4 @@ def test_compressed_rtf(test_fnm):
 
 
 if __name__ == '__main__':
-    from sys import argv as argv_
     test_compressed_rtf(argv_[1])

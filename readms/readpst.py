@@ -9,6 +9,7 @@ import logging
 from pprint import pprint
 from codecs import decode
 from io import StringIO
+from traceback import print_exc
 
 from datetime import datetime, timedelta
 from struct import unpack_from as unpackb, calcsize
@@ -96,7 +97,6 @@ class NDBLayer:
         try:
             self.close()
         except:
-            from traceback import print_exc
             print_exc()
         return False
 
@@ -409,7 +409,7 @@ class NodeHeap:
         # XXX Не е най-доброто решение; временно, докато не се намери подходящо документация
         # XXX Сравнително рядко, но доста досадно, индекса е малко по-голям от 2048
         if hidIndex > 2**11:
-            log.warning(f'{self._nid}: hidIndex: {hidIndex:#%X}; '
+            log.warning(f'{self._nid}: hidIndex: {hidIndex:08X}; '
                         f'{len(self._hn_pagemap["rgibAlloc"])}')
             hidIndex -= 2**11
         assert hidIndex <= 2**11, hidIndex

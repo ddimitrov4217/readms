@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
+from pkgutil import get_data
 from readms.readutl import ulong_from_tuple, UnpackDesc
 
 # Описанията са от файла [MS-PST] — v20100627
@@ -522,7 +523,6 @@ def parse_ms_oxprops(_silent=False, _maintain=False):
     # pylint: disable=too-many-statements
     # Колко да е кратко парсването на файла зс докумнетацията на MS и получаване на
     # дефиницията на атрибутите - ID, код име, описание, тип на стойността и други
-    from pkgutil import get_data
 
     def read_events():
         in_range, in_cont = False, False

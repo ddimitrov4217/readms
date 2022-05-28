@@ -3,17 +3,12 @@
 
 from os import path, getcwd, listdir, rmdir, unlink, fdopen, environ
 from tempfile import mkdtemp, mkstemp
-from io import StringIO
 from configparser import SafeConfigParser
-from collections import namedtuple
 
 import logging
 import logging.config
 
 from readms.pstmbox import MboxCacheEntry
-from readms.readmsg import PropertiesStream, Message
-from readms.readutl import dump_hex
-from readms.readpst import PropertyValue, PropertyContext
 
 
 class MboxWrapper:
