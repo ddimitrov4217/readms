@@ -3,7 +3,7 @@
 
 from os import path, getcwd, listdir, rmdir, unlink, fdopen, environ
 from tempfile import mkdtemp, mkstemp
-from configparser import SafeConfigParser
+from configparser import ConfigParser
 
 import logging
 import logging.config
@@ -55,7 +55,7 @@ class EnvConfig:
     def setup_env(self, cfg_file):
         logging.config.fileConfig(cfg_file)
         log = logging.getLogger(__name__)
-        self.config = SafeConfigParser(defaults=dict(here=path.dirname(path.abspath(cfg_file))))
+        self.config = ConfigParser(defaults=dict(here=path.dirname(path.abspath(cfg_file))))
         log.info("Using config %s", cfg_file)
         self.config.read(cfg_file)
         if EnvConfig.ENV_PST_FILES_NAME in environ:
