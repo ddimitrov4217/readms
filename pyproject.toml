@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling", "versioningit"]
+build-backend = "hatchling.build"
+
+[project]
+name = "readms"
+dynamic = ["version"]
+description = "MSOffice Readers (PST, Excel)"
+authors = [
+    { name = "Dimitar Dimitrov", email = "ddimitrov4217@gmail.com" },
+]
+
+dependencies = [
+    "click",
+    "pytz",
+]
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: Public Domain",
+    "Natural Language :: Bulgarian",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+Homepage = ""
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/readms",
+]
+
+[tool.hatch.version]
+source = "versioningit"
+
+[tool.versioningit.next-version]
+method = "smallest"
+
+[tool.versioningit.format]
+distance = "{base_version}.post{distance}"
+distance-dirty = "{base_version}.dev{distance}"
+dirty = "{base_version}.dev{distance}"
+
+[tool.ruff]
+line-length = 92
+output-format = "grouped"
+
+[tool.ruff.format]
+preview = true
+# quote-style = "single"
+
+[tool.ruff.lint]
+preview = false  # без все още нестабилните правила
+allowed-confusables = ["а", "с", "е", "г", "о", "Н", "Е", "С", "З", "Р", "р"]
+ignore = [
+    "T201",    # модула извежда информация на командна линия
+    "SLF001",  # Private member accessed ; FIXME: Това да се оправи някога
+    "S101",    # Use of assert detected ; FIXME: Останало от python2, да се изчисти
+    "N802",    # Function name ... should be lowercase ; а да отговарят на имената от pst
+
+]
+mccabe.max-complexity = 10  # по подразбиране е 10
+
+[tool.ruff.lint.extend-per-file-ignores]
+# "docs/.hooks/*" = ["INP001", "T201"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["foo", "_"]
+
+[tool.hatch.envs.test.scripts]
+mbox = "python -um readms.mboxpst {args:.}"
+
