@@ -59,23 +59,30 @@ ignore = [
     "T201",    # модула извежда информация на командна линия
     "SLF001",  # Private member accessed ; FIXME: Това да се оправи някога
     "S101",    # Use of assert detected ; FIXME: Останало от python2, да се изчисти
-    "N802",    # Function name ... should be lowercase ; за да отговарят на имената от pst
+
+    "N802", # Function name ... should be lowercase
+    "N806", # Variable ... in function should be lowercase
+    "N816", # Variable ... in global scope should not be mixedCase
+    # NOTE: Направени са така за да отговарят на имената от спецификацията на PST
 
     "PLR2004", # Magic value used in comparison, consider replacing ... with a constant variable
     # NOTE: Модула се изпозлва за парсване на зададени от спецификация binary структури и
     # използваните са от тази спецификация; почти всички се използват еднократно в
     # съответната функция
 
-    "S301",    # pickle and modules that wrap it can be unsafe when used to deserialize untrusted
+    "S301", # pickle and modules that wrap it can be unsafe when used to deserialize untrusted
     # data, possible security issue
     # NOTE: Това са данните за индексите на pst файловете; генерират се от самата програма,
     # не идват от никъде от вън; структурите които се използват не са най-подходящи за json
     # или нещо не толкова python native; TODO: Все пак някаква сигурна чек сума (HMAC
     # например) може да се направи по някое време с нисък приоритет;
 
-    "DTZ006",  # datetime.datetime.fromtimestamp() called without a tz argument
-    "DTZ005",  # datetime.datetime.now() called without a tz argument
+    "DTZ006", # datetime.datetime.fromtimestamp() called without a tz argument
+    "DTZ005", # datetime.datetime.now() called without a tz argument
     # TODO Това да се прегледа по-подробно, но вероятно не е необходимо да се ползва TZ
+
+    "FBT002", # Boolean default positional argument in function definition
+    # Това не разбирам защо е такъв проблем; TODO Взе пак да се погледнат тези 13 са
 ]
 mccabe.max-complexity = 10  # по подразбиране е 10
 
