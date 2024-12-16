@@ -1,32 +1,53 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-import time
+import logging
 import os
 import pickle
-import logging
-
-from pprint import pprint
+import time
 from codecs import decode
+from datetime import datetime, timedelta
 from io import StringIO
+from pprint import pprint
+from struct import calcsize
+from struct import unpack_from as unpackb
 from traceback import print_exc
 
-from datetime import datetime, timedelta
-from struct import unpack_from as unpackb, calcsize
-from pytz import timezone, utc as UTC
-from readms.readutl import dump_hex, decode_permute, ulong_from_tuple, UnpackDesc, uuid_from_buf
+from pytz import timezone
+from pytz import utc as UTC
+
 from readms.metapst import (
-    page_types, nid_types, nid_internal_types,
-    prop_types, all_props_types,
-    hn_header_client_sig,
+    BBT_ENTRY,
+    BLOCK_SIGNATURE,
+    BLOCK_TRAILER,
+    BT_ENTRY,
+    BT_PAGE,
+    BTH_HEADER,
+    HEADER_1,
+    HEADER_2,
+    HN_HDR,
+    HN_PAGE_MAP,
+    NBT_ENTRY,
+    PAGE_TRAILER,
+    PC_BTH_RECORD,
+    SL_ENTRY,
+    all_props_types,
     enrich_prop_code,
-    get_hid_index, get_hnid_type)
-from readms.metapst import (
-    HEADER_1, HEADER_2,
-    PAGE_TRAILER, BT_PAGE, BT_ENTRY, BBT_ENTRY, NBT_ENTRY,
-    BLOCK_TRAILER, BLOCK_SIGNATURE, SL_ENTRY,
-    HN_HDR, HN_PAGE_MAP, BTH_HEADER,
-    PC_BTH_RECORD)
+    get_hid_index,
+    get_hnid_type,
+    hn_header_client_sig,
+    nid_internal_types,
+    nid_types,
+    page_types,
+    prop_types,
+)
+from readms.readutl import (
+    UnpackDesc,
+    decode_permute,
+    dump_hex,
+    ulong_from_tuple,
+    uuid_from_buf,
+)
 
 log = logging.getLogger(__name__)
 

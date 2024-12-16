@@ -1,19 +1,18 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-import os
-from datetime import datetime
-from time import time
-from string import whitespace
-from codecs import open as open_enc
-from pkgutil import get_data
-
-import hashlib
-import pickle
 import email
 import email.header as email_header
-import re
+import hashlib
 import logging
+import os
+import pickle
+import re
+from codecs import open as open_enc
+from datetime import datetime
+from pkgutil import get_data
+from string import whitespace
+from time import time
 
 from readms.readpst import NDBLayer, PropertyContext
 

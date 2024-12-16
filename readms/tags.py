@@ -1,9 +1,10 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-from os import listdir, path
-from zipfile import ZipFile, ZIP_DEFLATED
 import pickle
+from os import listdir, path
+from zipfile import ZIP_DEFLATED, ZipFile
+
 import click
 
 from readms.pstmbox import MboxCacheEntry, TagsList

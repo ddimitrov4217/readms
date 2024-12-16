@@ -2,7 +2,8 @@
 # vim:ft=python:et:ts=4:sw=4:ai
 
 from pkgutil import get_data
-from readms.readutl import ulong_from_tuple, UnpackDesc
+
+from readms.readutl import UnpackDesc, ulong_from_tuple
 
 # Описанията са от файла [MS-PST] — v20100627
 # Outlook Personal Folders File Format (.pst) Structure Specification

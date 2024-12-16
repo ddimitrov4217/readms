@@ -1,13 +1,15 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-import re
 import os
-from sys import stdout, argv as argv_
-from struct import unpack_from as unpackb, calcsize
-from uuid import UUID
+import re
 from cProfile import Profile
 from pstats import Stats
+from struct import calcsize
+from struct import unpack_from as unpackb
+from sys import argv as argv_
+from sys import stdout
+from uuid import UUID
 
 
 def dump_hex(buf, lx=16, out=None):

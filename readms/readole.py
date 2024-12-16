@@ -1,17 +1,18 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-from sys import argv
-from os import path
-from traceback import print_exc
-from collections import namedtuple
-import re
 import logging
 import logging.config
-
-from struct import unpack_from as unpackb
+import re
 from codecs import decode
+from collections import namedtuple
+from os import path
+from struct import unpack_from as unpackb
+from sys import argv
+from traceback import print_exc
+
 import click
+
 from readms.readutl import dump_hex
 
 if __name__ == '__main__':

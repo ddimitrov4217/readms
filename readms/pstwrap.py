@@ -1,12 +1,11 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-from os import path, getcwd, listdir, rmdir, unlink, fdopen, environ
-from tempfile import mkdtemp, mkstemp
-from configparser import ConfigParser
-
 import logging
 import logging.config
+from configparser import ConfigParser
+from os import environ, fdopen, getcwd, listdir, path, rmdir, unlink
+from tempfile import mkdtemp, mkstemp
 
 from readms.pstmbox import MboxCacheEntry
 

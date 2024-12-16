@@ -3,11 +3,12 @@
 
 import argparse
 import codecs
-from sys import argv, stdout, stderr
-from os import path, mkdir, rmdir
 from io import StringIO
+from os import mkdir, path, rmdir
+from sys import argv, stderr, stdout
+
 from readms.readpst import NDBLayer, PropertyContext, PropertyValue
-from readms.readutl import run_profile, dump_hex
+from readms.readutl import dump_hex, run_profile
 
 
 def command_line_parser():

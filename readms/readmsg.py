@@ -1,18 +1,19 @@
 # -*- coding: UTF-8 -*-
 # vim:ft=python:et:ts=4:sw=4:ai
 
-from sys import argv
+import logging
 import re
 from codecs import decode
 from collections import namedtuple
 from struct import unpack_from as unpackb
-import logging
+from sys import argv
+
 import click
 
-from .readole import OLE
-from .readutl import uuid_from_buf
-from .readpst import PropertyValue
 from .metapst import enrich_prop_code
+from .readole import OLE
+from .readpst import PropertyValue
+from .readutl import uuid_from_buf
 
 log = logging.getLogger(__name__)
 
