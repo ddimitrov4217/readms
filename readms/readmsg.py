@@ -10,10 +10,10 @@ from sys import argv
 
 import click
 
-from .metapst import enrich_prop_code
-from .readole import OLE
-from .readpst import PropertyValue
-from .readutl import uuid_from_buf
+from readms.metapst import enrich_prop_code
+from readms.readole import OLE
+from readms.readpst import PropertyValue
+from readms.readutl import uuid_from_buf
 
 log = logging.getLogger(__name__)
 
