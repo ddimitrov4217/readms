@@ -43,7 +43,7 @@ def merge_tags(ctx, archive, pstpath):
 
     def apply_tags_file(mbox_name):
         mbox_file = path.join(pstpath, f"{mbox_name}.pst")
-        # TODO Да работи директно с архивирания файл
+        # TODO: Да работи директно с архивирания файл
         msgids_import = path.join(archive, f"{mbox_name}_msgids.idx")
         tags_import = path.join(archive, f"{mbox_name}_tags.idx")
         if (not path.exists(msgids_import) or

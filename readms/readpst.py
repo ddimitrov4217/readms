@@ -152,7 +152,7 @@ class NDBLayer:
 
         with open(self._index_name(), "rb") as fin:
             index = pickle.load(fin)
-            # TODO проверка на валидността на cache по полета от header
+            # TODO: проверка на валидността на cache по полета от header
             # index["header"] = self._header
             self._bbt = index["bbt"]
             self._bbtx = index["bbtx"]
@@ -269,7 +269,7 @@ class NDBLayer:
             # pprint(("_read_SLBLOCKs", entries))
             # dump_hex(data)
         elif c_level == 1:
-            # TODO 2.2.2.8.3.3.2 SIBLOCKs
+            # TODO: 2.2.2.8.3.3.2 SIBLOCKs
             raise NotImplementedError
         else:
             raise KeyError(c_level)
@@ -427,8 +427,8 @@ class NodeHeap:
 
     def _get_hid_pos_lx(self, hid):
         hidIndex = get_hid_index(hid)
-        # XXX Не е най-доброто решение; временно, докато не се намери подходящо документация
-        # XXX Сравнително рядко, но доста досадно, индекса е малко по-голям от 2048
+        # XXX: Не е най-доброто решение; временно, докато не се намери подходящо документация
+        # XXX: Сравнително рядко, но доста досадно, индекса е малко по-голям от 2048
         if hidIndex > 2**11:
             log.warning(f'{self._nid}: hidIndex: {hidIndex:08X}; '
                         f'{len(self._hn_pagemap["rgibAlloc"])}')
@@ -575,7 +575,7 @@ class PropertyContext(NodeHeap):
         # Това означава че описанието на атрибутите стоят в отделен блок; така че проверката
         # не трябва да е както беше с 1F (много необосновано) ами както е направена по-долу
         if self._bth_header["hidRoot"] >> 16 != 0:
-            # FIXME В този случай получава IndexError: list index out of range
+            # FIXME: В този случай получава IndexError: list index out of range
             # причината е че не се определя правилно таблицата с описанието на атрибутите
             # и те се чeтат от където падне; за този (твърде рядък) случай не се извлича нищо
             self._props = {}

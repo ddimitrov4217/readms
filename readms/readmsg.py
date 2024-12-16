@@ -168,7 +168,7 @@ class AttributesContainer:
         prop = ole.enrich_prop(int(found.group('code'), 16))
         ptype = int(found.group('type'), 16)
         if ptype & 0x1000:
-            return  # TODO Обслужване на multi-value стойности
+            return  # TODO: Обслужване на multi-value стойности
 
         pv = PropertyValue(ptype, ole.dire_read(dire))
         self.properties.append(Property(value=pv, prop=prop))

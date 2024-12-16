@@ -83,7 +83,7 @@ class OLE:
         self._max_ssize = unpackb("<l", b0, 56)[0]  # Mini Stream Cutoff Size
         assert self._max_ssize == 4096
 
-        # FIXME прочитане на всички, не само на първите 109 има още self._difat_cnt
+        # FIXME: прочитане на всички, не само на първите 109 има още self._difat_cnt
         self._fat_list = unpackb("<109l", b0, 76)  # DIFAT first 109 FAT sector locations
         self._fat_list = self._fat_list[:self._fats_cnt]
         log.debug('FATs sectors: %s', self._fat_list)

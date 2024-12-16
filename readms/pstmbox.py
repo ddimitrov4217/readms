@@ -690,7 +690,7 @@ class SearchTextIndex:
         s1, s2 = set(), 0
         for nx, ix in self.index.items():
             lx = len(ix)
-            if lx >= len_nids/3:  # TODO това 3 да се обоснове
+            if lx >= len_nids/3:  # TODO: това 3 да се обоснове
                 s1.add((nx, lx))
             s2 = max(s2, lx)
 
