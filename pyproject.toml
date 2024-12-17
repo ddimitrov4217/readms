@@ -95,4 +95,7 @@ known-first-party = ["foo", "_"]
 [tool.hatch.envs.test.scripts]
 mbox = "python -um readms.mboxpst {args:.}"
 
+[project.scripts]
+mboxpst = "readms.mboxpst:command_line"
+
 # vim:ft=toml:ts=4:sw=4:tw=92:et
