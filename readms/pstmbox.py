@@ -52,8 +52,8 @@ class MboxCacheEntry:
             self._index_content()
             # pylint: disable=protected-access
             # тук е само за logging
-            done_sec = f"in {self._mbox._done_time:#,.3f} sec"
-            stat_info = f"nbbt={len(self._mbox._bbt):#,d}, nnbt={len(self._mbox._nbt):#,d}"
+            done_sec = f"in {self._mbox._done_time:>,.3f} sec"
+            stat_info = f"nbbt={len(self._mbox._bbt):>,d}, nnbt={len(self._mbox._nbt):>,d}"
             log.info("done %s, %s", done_sec, stat_info)
         self._since = datetime.now()
 
@@ -211,7 +211,7 @@ class MboxCacheEntry:
 
             with open(topic_idx, "wb") as fout:
                 pickle.dump(topic_map, fout, pickle.HIGHEST_PROTOCOL)
-            done_sec = f"done in {time()-start_:#,.3f} sec"
+            done_sec = f"done in {time()-start_:>,.3f} sec"
             log.info(done_sec)
             return topic_map
 
@@ -234,7 +234,7 @@ class MboxCacheEntry:
 
             with open(cat_idx, "wb") as fout:
                 pickle.dump(cat_nids, fout, pickle.HIGHEST_PROTOCOL)
-            log.info(f"done in {(time()-start_):#,.3f} sec")
+            log.info(f"done in {(time()-start_):>,.3f} sec")
 
         with open(cat_idx, "rb") as fin:
             return pickle.load(fin)
@@ -269,7 +269,7 @@ class MboxCacheEntry:
                 result.append((nid_, nidp_, dttm))
 
         result.sort(key=lambda x: x[2], reverse=True)
-        done_sec = f"{len(result):,d} item(s) in {time()-start_:#,.3f} sec"
+        done_sec = f"{len(result):,d} item(s) in {time()-start_:>,.3f} sec"
         log.info(done_sec)
         return result
 
@@ -344,7 +344,7 @@ class MboxCacheEntry:
             with open(msgids_fnm, "wb") as fout:
                 pickle.dump(self._msgids, fout, pickle.HIGHEST_PROTOCOL)
 
-            done_sec = f"index {len(self._msgids):#,d} messages(s) in {time()-start_:#,.3f} sec"
+            done_sec = f"index {len(self._msgids):>,d} messages(s) in {time()-start_:>,.3f} sec"
             log.info(done_sec)
 
     def add_tag(self, tag, nid):
@@ -615,7 +615,7 @@ class SearchTextIndex:
     def read(self, file_name):
         with open(file_name, "rb") as fin:
             self._attrs, self.index = pickle.load(fin)
-        log.debug("%s", f"прочетен е индекс за търсене с {len(self.index):#,d} елемента")
+        log.debug("%s", f"прочетен е индекс за търсене с {len(self.index):>,d} елемента")
 
     def create(self, ndb):
         self._stop_words = self._load_stop_words()
@@ -629,7 +629,7 @@ class SearchTextIndex:
                 self._update(PropertyContext(ndb, nid), nid)
         self._sweep_analyze()
         self._debug_index()
-        log.info("%s", f"индексирането за търсене завърши за {time()-start:#,.3f} сек.")
+        log.info("%s", f"индексирането за търсене завърши за {time()-start:>,.3f} сек.")
 
     def _update(self, pc, nid):
         for attr in self._attrs:
@@ -673,7 +673,7 @@ class SearchTextIndex:
                     if len(line_) == 0 or line_.startswith("#"):
                         continue
                     result.add(line_)
-            log.info(f"заредени са {len(result):#,d} stop words")
+            log.info(f"заредени са {len(result):>,d} stop words")
             return result
         except IOError:
             log.warning(f'няма файл {resource_fnm}')
@@ -684,8 +684,8 @@ class SearchTextIndex:
         for ix in self.index.values():
             nids.update(ix)
         len_nids = len(nids)
-        log.debug("%s", f"елементи в индекса: {len(self.index):#,d}")
-        log.debug("%s", f"индексирани съобщения: {len_nids:#,d}")
+        log.debug("%s", f"елементи в индекса: {len(self.index):>,d}")
+        log.debug("%s", f"индексирани съобщения: {len_nids:>,d}")
 
         s1, s2 = set(), 0
         for nx, ix in self.index.items():
@@ -694,11 +694,11 @@ class SearchTextIndex:
                 s1.add((nx, lx))
             s2 = max(s2, lx)
 
-        log.debug("%s", f"брой неселективни думи: {len(s1):#,d}")
+        log.debug("%s", f"брой неселективни думи: {len(s1):>,d}")
         if log.isEnabledFor(logging.DEBUG):
             for word, lx in s1:
-                log.debug("    %s", "{word} ({lx:#,d}) ({1.0*lx/len_nids:#,.3f})")
-        log.debug("%s", f"най-дълъг индекс: {s2:#,d}")
+                log.debug("    %s", "{word} ({lx:>,d}) ({1.0*lx/len_nids:>,.3f})")
+        log.debug("%s", f"най-дълъг индекс: {s2:>,d}")
 
     def _debug_index(self):
         if log.isEnabledFor(logging.DEBUG):

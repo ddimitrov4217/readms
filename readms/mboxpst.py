@@ -177,7 +177,7 @@ def print_messages(ndb, params):
                                        "AttachFilename")
                 att_name = pa.get_value(att_name)
                 if not params.profile:
-                    print(f'{pa.get_value("AttachSize"):#,10d} {att_name:<60s}', file=out)
+                    print(f'{pa.get_value("AttachSize"):>10,d} {att_name:<60s}', file=out)
                 att = pa.get_value("AttachDataObject")
                 if not params.profile:
                     with open(path.join(odir, att_name), "wb+") as fout:
