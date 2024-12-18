@@ -56,7 +56,10 @@ preview = true
 preview = false  # без все още нестабилните правила
 allowed-confusables = ["а", "с", "е", "г", "о", "Н", "Е", "С", "З", "Р", "р", "В", "в"]
 ignore = [
-    "T201",    # модула извежда информация на командна линия
+    "T201", # T201 print found
+    "T203", # T203 pprint found
+    # модула извежда информация на командна линия
+
     "SLF001",  # Private member accessed ; FIXME: Това да се оправи някога
     "S101",    # Use of assert detected ; FIXME: Останало от python2, да се изчисти
 
