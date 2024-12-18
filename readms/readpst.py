@@ -67,7 +67,7 @@ def read_ndb_page(fin, bref):
     assert eng.pos == 512
     assert meta["ptype"] == meta["ptypeRepeat"]
 
-    ptype_desc = dict(BT=BT_ENTRY, BBT=BBT_ENTRY, NBT=NBT_ENTRY)
+    ptype_desc = {"BT": BT_ENTRY, "BBT": BBT_ENTRY, "NBT": NBT_ENTRY}
     ptype_code = page_types[meta["ptype"]][0]
     assert ptype_code in ("NBT", "BBT"), hex(meta["ptype"])
     if ptype_code == "NBT":
@@ -87,7 +87,7 @@ def read_ndb_page(fin, bref):
         eng = UnpackDesc(buf, pos=p*btpage["cbEnt"])
         eng.unpack(model)
         entries.extend(eng.out)
-    return dict(meta=meta, entries=entries)
+    return {"meta": meta, "entries": entries}
 
 
 # pylint: disable=too-many-instance-attributes

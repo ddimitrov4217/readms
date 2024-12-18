@@ -518,7 +518,7 @@ class MboxFilters:
         if os.path.exists(self.file_name):
             with open(self.file_name, "rb") as fin:
                 self.filters = pickle.load(fin)
-        self.opers = dict(A="Добави", F="Остави само", M="Махни")
+        self.opers = {"A": "Добави", "F": "Остави само", "M": "Махни"}
         self.opers_sort = ["A", "F", "M"]
 
     def append(self, oper, **kwargs):
@@ -567,7 +567,7 @@ class TagsList:
     def add_tag(self, code, descr):
         if len(code) == 0:
             raise ValueError("Кода на маркера е задължителен")
-        if any([x in code for x in whitespace]):
+        if any(x in code for x in whitespace):
             raise ValueError("Кода на маркера не трябва да съдържа интервали")
         if code in self._tags and (descr is None or len(descr) == 0):
             pass

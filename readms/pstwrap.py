@@ -54,7 +54,7 @@ class EnvConfig:
     def setup_env(self, cfg_file):
         logging.config.fileConfig(cfg_file)
         log = logging.getLogger(__name__)
-        self.config = ConfigParser(defaults=dict(here=path.dirname(path.abspath(cfg_file))))
+        self.config = ConfigParser(defaults={"here": path.dirname(path.abspath(cfg_file))})
         log.info("Using config %s", cfg_file)
         self.config.read(cfg_file)
         if EnvConfig.ENV_PST_FILES_NAME in environ:
@@ -75,7 +75,7 @@ class EnvConfig:
 
     def get_fonts_html(self):
         font_html = self.get_option("app", "font.html", "7,8,9,10,11,12,14")
-        return list([int(x_) for x_ in font_html.split(",")])
+        return [int(x_) for x_ in font_html.split(",")]
 
 
 class TempFiles:

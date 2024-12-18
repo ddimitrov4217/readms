@@ -67,7 +67,7 @@ def merge_tags(ctx, archive, pstpath):
                 if msgid is not None:
                     if mx is None:
                         mx = MboxCacheEntry(mbox_file, ctx.obj['store'])
-                        target_msgids = dict((msgid, nid) for nid, msgid in mx._msgids)
+                        target_msgids = {msgid: nid for nid, msgid in mx._msgids}
                     target_nid = target_msgids.get(msgid, None)
                     if target_nid is not None:
                         if target_nid not in mx.get_tag_nids(tag):

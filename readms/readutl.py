@@ -87,8 +87,8 @@ class UnpackDesc:
 
     @staticmethod
     def struct_map(desc):
-        strmap = dict(byte="B", WORD="H", DWORD="L",
-                      BID="Q", IB="Q", CB="Q", NID="Q", BREF="2Q")
+        strmap = {"byte": "B", "WORD": "H", "DWORD": "L",
+                  "BID": "Q", "IB": "Q", "CB": "Q", "NID": "Q", "BREF": "2Q"}
         patt = re.compile(r"""^(?P<ctype>\w{1,})\s+
                                (?P<stf>\w{1,})
                                (?:\s*[[](?P<sz>\d+)[]]){0,1}

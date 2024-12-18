@@ -68,12 +68,12 @@ class PropertiesStream(OLE):
 
     def enrich_prop(self, tag):
         if tag in self._named_map:
-            return dict(propTag=tag, propCode=self._named_map[tag].code)
+            return {'propTag': tag, 'propCode': self._named_map[tag].code}
         return self._oxprops(tag)
 
     @staticmethod
     def _oxprops(tag):
-        prop = [dict(propTag=tag)]
+        prop = [{'propTag': tag}]
         enrich_prop_code(prop)
         return prop[0]
 

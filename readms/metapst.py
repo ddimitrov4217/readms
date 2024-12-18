@@ -584,7 +584,7 @@ def parse_ms_oxprops(_silent=False, _maintain=False):
                         print(f'  {px_}\n')
                         continue
 
-            prop = dict(name=name)
+            prop = {"name": name}
             parsed_prop_types.append(prop)
         if etag == "DESC":
             att, desc = info
@@ -603,7 +603,7 @@ def parse_ms_oxprops(_silent=False, _maintain=False):
                 append_desc(id_name)
             if not _silent:
                 lost = [x["name"] for x in parsed_prop_types
-                        if all([(z not in x) for z in id_names])]
+                        if all((z not in x) for z in id_names)]
                 print(f"{len(lost):#5d} lost for no ID defined")
 
             # Това се пуска за разследване на повторения на кодовете на таговете
