@@ -191,6 +191,9 @@ class OLE:
             self.id = entry_id
             name_sz = unpackb("<h", buf, pos+64)[0]
             self.name = decode(buf[pos:pos+name_sz], "UTF16")
+            if ord(self.name[-1]) == 0:
+                # null terminated string
+                self.name = self.name[:-1]
             self._type = unpackb("<1B", buf, pos+66)[0]
             self.type_name = {0: 'Unknown', 1: 'Storage', 2: 'Stream', 5: 'Root'}[self._type]
             log.debug('DIRE [%d] type/name: %d: %s', self.id, self._type, self.name)
