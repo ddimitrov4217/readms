@@ -530,6 +530,9 @@ class PropertyValue:
     @classmethod
     def _read_PtypGuid(cls, pbuf):
         # [MS-DTYP] Windows Data Types 2.3.4 GUID and UUID
+        if (len(pbuf) != 16):
+            # XXX: Защо има такива, да се прегледа последната версия на документацията
+            return cls._read_Binary(pbuf)
         px = (unpackb("<L", pbuf, 0)[0], unpackb("<H", pbuf, 4)[0],
               unpackb("<H", pbuf, 6)[0], unpackb("<8B", pbuf, 8))
         fx1 = '%04X-%02X-%02X' % px[:3]
