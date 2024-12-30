@@ -36,8 +36,8 @@ def print_property(pc, value_limit=30, binary_limit=128, with_empty=True):
     if value_size == 0 and not with_empty:
         return
 
-    print(f"{pc.prop['propTag']:#04X} {value_type:10s} "
-          f"{value_def_size:#4d} {value_size:#6d} {pc.prop['propCode']:#40s}",
+    print(f"{pc.prop['propTag']:04X} {value_type:10s} "
+          f"{value_def_size:#4d} {value_size:#6d} {pc.prop['propCode']:40s}",
           end='')
 
     if value_type != 'Binary':
