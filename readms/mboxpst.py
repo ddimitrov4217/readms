@@ -49,7 +49,7 @@ def command_line_parser():
         help="skip above that limit or save into external file")
     parser.add_argument(
         "--with-attachments", action="store_true", default=False,
-        help="export attachments`")
+        help="export attachments")
     parser.add_argument(
         "--save", action="store_true", default=False,
         help="save messages into external files")
@@ -57,12 +57,18 @@ def command_line_parser():
 
 
 def list_content(ndb, params):
-    folders_fmt = (("ContentCount", "%5d"),
-                   ("Subfolders", "%-7s"),
-                   ("DisplayName", "%-30s"),)
-    message_fmt = (("MessageSizeExtended", "%8s"),
-                   ("MessageDeliveryTime", "%20s"),
-                   ("Subject", "%-30s"),)
+    def format_int_func(x):
+        if x is not None:
+            return f"{x:,d}"
+        return "None"
+
+    folders_fmt = (("ContentCount", format_int_func, "{0:>7s} ", "Count"),
+                   ("Subfolders",  str, "{0:<10s} ", None),
+                   ("DisplayName", str, "{0:<30s} ", None),)
+
+    message_fmt = (("MessageSizeExtended", format_int_func, "{0:>12s} ", "Size"),
+                   ("MessageDeliveryTime", str, "{0:25s} ", None),
+                   ("Subject", str, "{0:30s}", None),)
 
     if not (params.list or
             params.list_messages or
@@ -80,16 +86,22 @@ def list_content(ndb, params):
         if not params.profile:
             print("="*60, file=out)
             print(pc_type, "\n", file=out)
+
+            print(f"{'nid':>9s} {'parent':>7s}", file=out, end='')
+            for code, _func, fmt, title in fields:
+                print(fmt.format(title or code), file=out, end='')
+            print(file=out)
+
         for nx in ndb._nbt:
             if nx["typeCode"] != pc_type:
                 continue
             pc = PropertyContext(ndb, nx["nid"])
             if not params.profile:
                 print(f'{nx["nid"]:#9d} {nx["nidParent"]:#7d}', file=out, end='')
-            for code, fmt in fields:
+            for code, func, fmt, _title in fields:
                 value = pc.get_value(code)
                 if not params.profile:
-                    print(("%s " % fmt) % value, file=out, end='')
+                    print(fmt.format(func(value)), file=out, end='')
             if not params.profile:
                 print(file=out)
         if not params.profile:
@@ -97,19 +109,23 @@ def list_content(ndb, params):
 
     if params.list:
         list_pc("NORMAL_FOLDER", folders_fmt)
+
     if params.list_messages:
         list_pc("NORMAL_MESSAGE", message_fmt)
+
     if params.list_attachments:
         if not params.profile:
             print("="*60, file=out)
             print("ATTACHMENT\n", file=out)
+
+        print(f"{'nid':>9} {'hnid':>7} {'size':>12} {'name':<20}", file=out)
         for nid, hnid in ndb.list_nids("ATTACHMENT"):
             pc = PropertyContext(ndb, nid, hnid)
             p1 = pc.get_value("AttachSize")
             p2 = pc.get_value(pc.alt_name("DisplayName", "AttachFilename"))
             p2 = p2 or '--липсва--'
             if not params.profile:
-                print(f"{nid:#9d} {hnid:#7d} {p1:#12,d} {p1:<20}", file=out)
+                print(f"{nid:#9d} {hnid:#7d} {p1:#12,d} {p2:<20}", file=out)
 
 
 def print_messages(ndb, params):
