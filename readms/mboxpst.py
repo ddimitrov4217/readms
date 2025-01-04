@@ -3,10 +3,12 @@
 
 import codecs
 from io import StringIO
+from os import mkdir, path
 from sys import stderr
 
 import click
 
+from readms.metapst import get_internet_code_page
 from readms.readpst import NDBLayer, PropertyContext, PropertyValue
 from readms.readutl import dump_hex
 
@@ -118,7 +120,7 @@ def print_messages(ctx, nids, binary_limit):
                       f"{len(value_buf):#6d} {ptag:40s}", end='')
                 if pt_code == "Binary":
                     if binary_limit > 0:
-                       value = PropertyValue.BinaryValue(value.data[:binary_limit])
+                        value = PropertyValue.BinaryValue(value.data[:binary_limit])
                     else:
                         print()
                         continue
@@ -133,6 +135,7 @@ def print_messages(ctx, nids, binary_limit):
                 att_name = pa.alt_name("AttachLongFilename", "DisplayName", "AttachFilename")
                 att_name = pa.get_value(att_name)
                 print(f'{pa.get_value("AttachSize"):>10,d} {att_name:<60s}')
+
 
 @cli.command('nltk', help='Извежда текста на съобщенията подходящо за NLTK')
 @click.argument('outfile', type=click.STRING)
@@ -161,19 +164,152 @@ def print_stat_messages(ctx, outfile):
 # https://docs.fileformat.com/email/
 # https://datatracker.ietf.org/doc/html/rfc5322.html
 @cli.command('export', help='Извежда съобщения в широко изпозлвани формати')
+@click.argument('opath', type=click.Path(exists=True, dir_okay=True))
 @click.argument('nids', nargs=-1, type=int)
-@click.option('--path', type=click.Path(exists=True, dir_okay=True),
-              default='data', show_default=True,
-              help='папка, в която да се записват файловете')
-@click.option('--files', is_flag=True, show_default=False, help='като файлове (нестандартно)')
-@click.option('--eml', is_flag=True, show_default=False, help='TODO като eml RFC-822')
-@click.option('--outlook', is_flag=True, show_default=False, help='TODO като Outlook msg')
+@click.option('--folders', is_flag=True, show_default=True,
+              help='извежда всички съобщения като счита зададените nids за идентификатори на папки')
+@click.option('--plain', is_flag=True, show_default=True,
+              help='като сглобени файлове в папка (нестандартно)')
+@click.option('--eml', is_flag=True, show_default=True, help='TODO като eml RFC-822')
+@click.option('--outlook', is_flag=True, show_default=True, help='TODO като Outlook msg')
 @click.pass_context
-def export_messages(ctx, nids, path, files):
-    # TODO: Извеждане като файлове (нестандартно)
+def export_messages(ctx, nids, folders, opath, plain, eml, outlook):
+    with NDBLayer(ctx.obj['pstfile']) as ndb:
+        all_nids = {}
+        if folders:
+            for nx in ndb._nbt:
+                if nx["typeCode"] != 'NORMAL_MESSAGE':
+                    continue
+                if nx["nidParent"] in nids:
+                    parent = str(nx["nidParent"])
+                    if parent not in all_nids:
+                        all_nids[parent] = []
+                    all_nids[parent].append(nx["nid"])
+        else:
+            all_nids[''] = nids
+
+        for odir, nids in all_nids.items():
+            odir = path.join(opath, odir)  # noqa: PLW2901
+            if not path.exists(odir):
+                mkdir(odir)
+            for nid in nids:
+                ofile = path.join(odir, f"{nid}")
+                print(f"... export {nid} -> {ofile}")
+
+                if plain:
+                    export_plain(ndb, ofile, nid)
+                if eml:
+                    export_eml(ndb, ofile, nid)
+                if outlook:
+                    export_outlook(ndb, ofile, nid)
+
+
+def export_plain(ndb, odir, nid):
+    if not path.exists(odir):
+        mkdir(odir)
+    pc = PropertyContext(ndb, nid)
+
+    def format_email_addr(name, addr):
+        result = []
+        if name is not None:
+            result.append(f' {name}')
+        if addr is not None:
+            result.append(f' &lt;{addr}&gt;')
+        return ' '.join(result)
+
+    def find_attr(pc, *names):
+        for name in names:
+            pv = pc.get_value(name)
+            if pv is not None:
+                return pv
+        return None
+
+    # (1) Plain text на съобщението
+    pv = pc.get_value("Body")
+    if pv is not None:
+        with open(path.join(odir, "body.txt"), "w", encoding="UTF-8") as fout:
+            fout.write(pv)
+
+    # (2) Приложени файлове
+    attached_cid = {}
+    for anid, snid in ndb.list_nids("ATTACHMENT", nid):
+        pa = PropertyContext(ndb, anid, snid)
+        att_name = pa.alt_name("AttachLongFilename", "DisplayName", "AttachFilename")
+        att_name = pa.get_value(att_name)
+        att = pa.get_value("AttachDataObject")
+        with open(path.join(odir, att_name), "wb+") as fout:
+            fout.write(att.data)
+        cid = pa.get_value('AttachContentId')
+        if cid is not None:
+            attached_cid[cid] = att_name
+
+    # (3) Съобщението като HTML
+    pv = pc.get_value("Html")
+    if pv is not None:
+        ec = pc.get_value("InternetCodepage")
+        if ec is not None:
+            code_page = get_internet_code_page(ec)
+        code_page = code_page or "UTF-8"
+        html_text = codecs.decode(pv.data, code_page, "replace")
+
+        with open(path.join(odir, "body.html"), "w", encoding=code_page) as fout:
+            def fout_print(x):
+                if x is not None:
+                    print(x, file=fout)
+
+            fout_print("<html><body>")
+
+            # (3.1) Тема на писмото
+            attr = pc.get_value_safe("ConversationTopic")
+            if attr is not None:
+                fout_print(f"<b>Subject:</b> {attr}<br/>")
+
+            # (3.2) Автор на писмото
+            name = find_attr(pc, "SenderName", "SentRepresentingName")
+            addr = find_attr(pc, "SenderSmtpAddress", "SentRepresentingSmtpAddress")
+            if name is not None or addr is not None:
+                fout_print(f"<b>From:</b> {format_email_addr(name, addr)}<br/>")
+
+            # (3.3) Получатели
+            name_cc = pc.get_value("DisplayCc")
+            name_to = pc.get_value("DisplayTo")
+            if name_to is not None:
+                fout_print(f"<b>To:</b> {name_to}<br/>")
+            if name_cc is not None:
+                fout_print(f"<b>CC:</b> {name_cc}<br/>")
+
+            # (3.4) Дата и час на получаване
+            attr = pc.get_value("MessageDeliveryTime")
+            if attr is not None:
+                fout_print(f"<b>MessageDeliveryTime:</b> {attr:%d.%m.%Y %H:%M:%S %Z}<br/>")
+
+            # (3.5) Приложени файлове
+            attached_files = []
+            for cid, refname in attached_cid.items():
+                if html_text.find(f"cid:{cid}") < 0:
+                    attached_files.append(refname)
+            if attached_files:
+                fout_print("<b>Attached files: </b>")
+                for refname in attached_files:
+                    fout_print(f'<a href={refname}>{refname}</a>; ')
+
+            fout_print("<hr/></body></html>")
+
+            # (3.6) Inline картинки
+            if html_text is not None:
+                for cid, refname in attached_cid.items():
+                    html_text = html_text.replace(f"cid:{cid}", refname)
+                fout_print(html_text)
+
+
+def export_eml(ndb, ofile, nid):  # noqa:ARG001
     # TODO: Извеждане като eml RFC-822
+    raise NotImplementedError
+
+
+def export_outlook(ndb, ofile, nid):  # noqa:ARG001
     # TODO: Извеждане като Outlook msg
-    pass
+    raise NotImplementedError
 
 
 if __name__ == "__main__":
