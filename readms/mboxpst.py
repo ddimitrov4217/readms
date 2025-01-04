@@ -260,8 +260,8 @@ def export_plain(ndb, odir, nid):
         with open(path.join(odir, att_name), "wb+") as fout:
             fout.write(att.data)
         cid = pa.get_value('AttachContentId')
-        if cid is not None:
-            attached_cid[cid] = att_name
+        cid = cid or anid
+        attached_cid[cid] = att_name
 
     # (3) Съобщението като HTML
     pv = pc.get_value("Html")
