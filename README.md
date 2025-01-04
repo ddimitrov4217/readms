@@ -14,28 +14,49 @@
 Извикването от камандна линия е следното:
 
 ```
-usage: mboxpst [-h] [--profile] [--list] [--list-messages] [--list-attachments] [--list-all]
-               [--print-messages nid [nid ...]] [--print-stat-messages out_file] [--with-binary]
-               [--binary-limit limit] [--with-attachments] [--save]
-               pstfile
-```
-```
-positional arguments:
-  pstfile               Path to Outlook PST file
+Usage: python -m readms.mboxpst [OPTIONS] PSTFILE COMMAND [ARGS]...
 
-options:
-  -h, --help            show this help message and exit
-  --profile             run with cProfile with no output (default: False)
-  --list                list folders (default: False)
-  --list-messages       list messages (default: False)
-  --list-attachments    list messages attachements (default: False)
-  --list-all            list folders, messages and attachements (default: False)
-  --print-messages nid [nid ...]
-                        print messages content (default: None)
-  --print-stat-messages out_file
-                        file to print all messages for later NLP (default: None)
-  --with-binary         process binaries (default: False)
-  --binary-limit limit  skip above that limit or save into external file (default: 1024)
-  --with-attachments    export attachments` (default: False)
-  --save                save messages into external files (default: False)
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  content   Извежда съдържанието на pst файла
+  export    Извежда съобщения в широко изпозлвани формати
+  messages  Извежда едно или повече съобщения
+  nltk      Извежда текста на съобщенията подходящо за NLTK
+```
+```
+Usage: python -m readms.mboxpst PSTFILE content [OPTIONS]
+
+  Извежда съдържанието на pst файла
+
+Options:
+  --list-folders      папки
+  --list-messages     съобщения
+  --list-attachments  приложени файлове
+  --list-all          извежда всичко
+  --help              Show this message and exit.
+```
+```
+Usage: python -m readms.mboxpst PSTFILE export [OPTIONS] OPATH [NIDS]...
+
+  Извежда съобщения в широко изпозлвани формати
+
+Options:
+  --folders  извежда всички съобщения като счита зададените nids за
+             идентификатори на папки
+  --plain    като сглобени файлове в папка (нестандартно)
+  --eml      TODO като eml RFC-822
+  --outlook  TODO като Outlook msg
+  --help     Show this message and exit.
+```
+```
+Usage: python -m readms.mboxpst PSTFILE messages [OPTIONS] [NIDS]...
+
+  Извежда едно или повече съобщения
+
+Options:
+  --binary-limit INTEGER  извежда най-много толкова байта за binary атрибути
+                          [default: 0]
+  --help                  Show this message and exit.
 ```
