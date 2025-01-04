@@ -5,7 +5,7 @@ import codecs
 from io import StringIO
 from os import mkdir, path
 from sys import stderr
-
+from urllib.parse import quote as urlquote
 import click
 
 from readms.metapst import get_internet_code_page
@@ -311,7 +311,7 @@ def export_plain(ndb, odir, nid):
             if attached_files:
                 fout_print("<b>Attached files: </b>")
                 for refname in attached_files:
-                    fout_print(f'<a href={refname}>{refname}</a>; ')
+                    fout_print(f'<a href="{urlquote(refname)}">{refname}</a>; ')
 
             fout_print("<hr/></body></html>")
 
