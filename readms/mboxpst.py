@@ -188,8 +188,9 @@ def export_messages(ctx, nids, folders, opath, plain, eml, outlook):
         else:
             all_nids[''] = nids
 
-        for odir, nids in all_nids.items():
-            odir = path.join(opath, odir)  # noqa: PLW2901
+        index = {}
+        for pdir, nids in all_nids.items():
+            odir = path.join(opath, pdir)
             if not path.exists(odir):
                 mkdir(odir)
             for nid in nids:
@@ -197,17 +198,35 @@ def export_messages(ctx, nids, folders, opath, plain, eml, outlook):
                 print(f"... export {nid} -> {ofile}")
 
                 if plain:
-                    export_plain(ndb, ofile, nid)
+                    index_data = export_plain(ndb, ofile, nid)
+                    if folders:
+                        if pdir not in index:
+                            index[pdir] = []
+                        index[pdir].append(index_data)
                 if eml:
                     export_eml(ndb, ofile, nid)
                 if outlook:
                     export_outlook(ndb, ofile, nid)
+
+        # TODO: Извеждане на индекса
+        if index:
+            for pdir, pdir_index in index.items():
+                with open(path.join(opath, pdir, "index.html"), "w", encoding="UTF-8") as fout:
+                    print("<html><body><ul>", file=fout)
+                    for entry in pdir_index:
+                        print("<li>"
+                              f"<a href='{entry['nid']}/{entry['link']}'>"
+                              f"{entry['subject']}</a>"
+                              "</li>",
+                              file=fout)
+                    print("</ul></body></html>", file=fout)
 
 
 def export_plain(ndb, odir, nid):
     if not path.exists(odir):
         mkdir(odir)
     pc = PropertyContext(ndb, nid)
+    index_data = {'nid': nid}
 
     def format_email_addr(name, addr):
         result = []
@@ -229,6 +248,7 @@ def export_plain(ndb, odir, nid):
     if pv is not None:
         with open(path.join(odir, "body.txt"), "w", encoding="UTF-8") as fout:
             fout.write(pv)
+            index_data['link'] = 'body.txt'
 
     # (2) Приложени файлове
     attached_cid = {}
@@ -300,6 +320,11 @@ def export_plain(ndb, odir, nid):
                 for cid, refname in attached_cid.items():
                     html_text = html_text.replace(f"cid:{cid}", refname)
                 fout_print(html_text)
+                index_data['link'] = 'body.html'
+
+    attr = pc.get_value_safe("ConversationTopic")
+    index_data['subject'] = attr or "No Subject"
+    return index_data
 
 
 def export_eml(ndb, ofile, nid):  # noqa:ARG001
