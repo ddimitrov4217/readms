@@ -86,6 +86,9 @@ ignore = [
 
     "FBT002", # Boolean default positional argument in function definition
     # Това не разбирам защо е такъв проблем; TODO Взе пак да се погледнат тези 13 са
+
+    "PYI024", # Use typing.NamedTuple instead of collections.namedtuple
+    # Това вече изглежда много ОО, не е най pythonic way с това типизиране
 ]
 mccabe.max-complexity = 10  # по подразбиране е 10
 
