@@ -272,7 +272,7 @@ def export_plain(ndb, odir, nid):
         code_page = code_page or "UTF-8"
         html_text = codecs.decode(pv.data, code_page, "replace")
 
-        with open(path.join(odir, "body.html"), "w", encoding=code_page) as fout:
+        with open(path.join(odir, "body.html"), "w", encoding=code_page, errors='replace') as fout:
             def fout_print(x):
                 if x is not None:
                     print(x, file=fout)
