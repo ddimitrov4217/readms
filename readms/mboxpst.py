@@ -208,7 +208,7 @@ def export_messages(ctx, nids, folders, opath, plain, eml, outlook):
                 if outlook:
                     export_outlook(ndb, ofile, nid)
 
-        # TODO: Извеждане на индекса
+        # Извеждане на индекса
         if index:
             for pdir, pdir_index in index.items():
                 with open(path.join(opath, pdir, "index.html"), "w", encoding="UTF-8") as fout:
@@ -222,10 +222,49 @@ def export_messages(ctx, nids, folders, opath, plain, eml, outlook):
                     print("</ul></body></html>", file=fout)
 
 
+class EmailExport:
+    def __init__(self, pc):
+        self.pc = pc
+
+    def find_attr(self, *names):
+        for name in names:
+            pv = self.pc.get_value(name)
+            if pv is not None:
+                return pv
+        return None
+
+    def get_sender(self):
+        return (self.find_attr(self.pc, "SenderName", "SentRepresentingName"),
+                self.find_attr(self.pc, "SenderSmtpAddress", "SentRepresentingSmtpAddress"))
+
+    def get_recipients(self):
+        return self.pc.get_value("DisplayTo"), self.pc.get_value("DisplayCc")
+
+    def get_encoding(self):
+        ec = self.pc.get_value("InternetCodepage")
+        if ec is not None:
+            code_page = get_internet_code_page(ec)
+        return code_page or "UTF-8"
+
+    def get_html(self):
+        pv = self.pc.get_value("Html")
+        if pv is not None:
+            return codecs.decode(pv.data, self.get_encoding(), "replace")
+        return None
+
+    def get_attachments(self, ndb, nid):
+        for anid, snid in ndb.list_nids("ATTACHMENT", nid):
+            pa = PropertyContext(ndb, anid, snid)
+            att_name = pa.alt_name("AttachLongFilename", "DisplayName", "AttachFilename")
+            att_name = pa.get_value(att_name)
+            att = pa.get_value("AttachDataObject")
+            cid = pa.get_value('AttachContentId')
+            yield att_name, cid, anid, att
+
+
 def export_plain(ndb, odir, nid):
-    if not path.exists(odir):
-        mkdir(odir)
     pc = PropertyContext(ndb, nid)
+    ee = EmailExport(pc)
     index_data = {'nid': nid}
 
     def format_email_addr(name, addr):
@@ -236,13 +275,6 @@ def export_plain(ndb, odir, nid):
             result.append(f' &lt;{addr}&gt;')
         return ' '.join(result)
 
-    def find_attr(pc, *names):
-        for name in names:
-            pv = pc.get_value(name)
-            if pv is not None:
-                return pv
-        return None
-
     # (1) Plain text на съобщението
     pv = pc.get_value("Body")
     if pv is not None:
@@ -252,27 +284,18 @@ def export_plain(ndb, odir, nid):
 
     # (2) Приложени файлове
     attached_cid = {}
-    for anid, snid in ndb.list_nids("ATTACHMENT", nid):
-        pa = PropertyContext(ndb, anid, snid)
-        att_name = pa.alt_name("AttachLongFilename", "DisplayName", "AttachFilename")
-        att_name = pa.get_value(att_name)
-        att = pa.get_value("AttachDataObject")
+    for att_name, cid, anid, att in ee.get_attachments(ndb, nid):
         with open(path.join(odir, att_name), "wb+") as fout:
             fout.write(att.data)
-        cid = pa.get_value('AttachContentId')
-        cid = cid or anid
-        attached_cid[cid] = att_name
+        attached_cid[cid or anid] = att_name
 
     # (3) Съобщението като HTML
-    pv = pc.get_value("Html")
-    if pv is not None:
-        ec = pc.get_value("InternetCodepage")
-        if ec is not None:
-            code_page = get_internet_code_page(ec)
-        code_page = code_page or "UTF-8"
-        html_text = codecs.decode(pv.data, code_page, "replace")
+    html_text = ee.get_html()
+    if html_text is not None:
+        with open(path.join(odir, "body.html"), "w",
+                  encoding=ee.get_encoding(),
+                  errors='replace') as fout:
 
-        with open(path.join(odir, "body.html"), "w", encoding=code_page, errors='replace') as fout:
             def fout_print(x):
                 if x is not None:
                     print(x, file=fout)
@@ -285,14 +308,12 @@ def export_plain(ndb, odir, nid):
                 fout_print(f"<b>Subject:</b> {attr}<br/>")
 
             # (3.2) Автор на писмото
-            name = find_attr(pc, "SenderName", "SentRepresentingName")
-            addr = find_attr(pc, "SenderSmtpAddress", "SentRepresentingSmtpAddress")
+            name, addr = ee.get_sender()
             if name is not None or addr is not None:
                 fout_print(f"<b>From:</b> {format_email_addr(name, addr)}<br/>")
 
             # (3.3) Получатели
-            name_cc = pc.get_value("DisplayCc")
-            name_to = pc.get_value("DisplayTo")
+            name_to, name_cc = ee.get_recipients()
             if name_to is not None:
                 fout_print(f"<b>To:</b> {name_to}<br/>")
             if name_cc is not None:
