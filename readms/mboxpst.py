@@ -3,6 +3,7 @@
 
 import codecs
 import mimetypes
+import re
 from email.headerregistry import Address
 from email.message import EmailMessage
 from email.policy import SMTP
@@ -363,7 +364,7 @@ def export_eml(ndb, ofile, nid):
     # (1) Тема на писмото
     attr = pc.get_value_safe("ConversationTopic")
     if attr is not None:
-        out["Subject"] = attr
+        out["Subject"] = re.sub("[\r\n]", " ", attr)
     index_data['subject'] = attr or "No Subject"
 
     # (2) Автор на писмото
