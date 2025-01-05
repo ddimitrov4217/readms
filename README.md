@@ -46,10 +46,11 @@ Options:
   --folders  извежда всички съобщения като счита зададените nids за
              идентификатори на папки
   --plain    като сглобени файлове в папка (нестандартно)
-  --eml      TODO като eml RFC-822
+  --eml      като eml RFC-822
   --outlook  TODO като Outlook msg
   --help     Show this message and exit.
 ```
+Извеждането в [RFC-822](https://www.rfc-editor.org/rfc/rfc822.html) формат (с разширение .eml) е тествано с [Thunderbird](https://www.thunderbird.net/bg/).
 ```
 Usage: python -m readms.mboxpst PSTFILE messages [OPTIONS] [NIDS]...
 
