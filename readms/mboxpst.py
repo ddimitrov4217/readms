@@ -2,10 +2,15 @@
 # vim:ft=python:et:ts=4:sw=4:ai
 
 import codecs
+import mimetypes
+from email.headerregistry import Address
+from email.message import EmailMessage
+from email.policy import SMTP
 from io import StringIO
 from os import mkdir, path
 from sys import stderr
 from urllib.parse import quote as urlquote
+
 import click
 
 from readms.metapst import get_internet_code_page
@@ -162,7 +167,6 @@ def print_stat_messages(ctx, outfile):
 
 
 # https://docs.fileformat.com/email/
-# https://datatracker.ietf.org/doc/html/rfc5322.html
 @cli.command('export', help='Извежда съобщения в широко изпозлвани формати')
 @click.argument('opath', type=click.Path(exists=True, dir_okay=True))
 @click.argument('nids', nargs=-1, type=int)
@@ -170,7 +174,7 @@ def print_stat_messages(ctx, outfile):
               help='извежда всички съобщения като счита зададените nids за идентификатори на папки')
 @click.option('--plain', is_flag=True, show_default=True,
               help='като сглобени файлове в папка (нестандартно)')
-@click.option('--eml', is_flag=True, show_default=True, help='TODO като eml RFC-822')
+@click.option('--eml', is_flag=True, show_default=True, help='като eml RFC-822')
 @click.option('--outlook', is_flag=True, show_default=True, help='TODO като Outlook msg')
 @click.pass_context
 def export_messages(ctx, nids, folders, opath, plain, eml, outlook):
@@ -348,9 +352,68 @@ def export_plain(ndb, odir, nid):
     return index_data
 
 
-def export_eml(ndb, ofile, nid):  # noqa:ARG001
-    # TODO: Извеждане като eml RFC-822
-    raise NotImplementedError
+# https://datatracker.ietf.org/doc/html/rfc5322.html
+def export_eml(ndb, ofile, nid):
+    index_data = {'nid': nid}
+    pc = PropertyContext(ndb, nid)
+    ee = EmailExport(pc)
+
+    out = EmailMessage()
+
+    # (1) Тема на писмото
+    attr = pc.get_value_safe("ConversationTopic")
+    if attr is not None:
+        out["Subject"] = attr
+    index_data['subject'] = attr or "No Subject"
+
+    # (2) Автор на писмото
+    name, addr = ee.get_sender()
+    if name is not None or addr is not None:
+        out["From"] = Address(name, addr_spec=addr)
+
+    # (3) Получатели
+    name_to, name_cc = ee.get_recipients()
+    if name_to is not None:
+        out["To"] = name_to
+    if name_cc is not None:
+        out["Cc"] = name_cc
+
+    # (4) Дата и час на получаване
+    attr = pc.get_value("MessageDeliveryTime")
+    if attr is not None:
+        out["Date"] = attr
+
+    pv = pc.get_value("Body")
+    if pv is not None:
+        out.set_content(pv)
+
+    # (5) Алтернативата в HTML
+    html_text = ee.get_html()
+    html_part = None
+    if html_text is not None:
+        out.add_alternative(html_text, subtype="html")
+        html_part = out.get_payload()[-1]
+
+    # (6) Приложените файлове и връзка с inline картинки
+    for att_name, cid, _anid, att in ee.get_attachments(ndb, nid):
+        ctype, encoding = mimetypes.guess_type(att_name)
+
+        if ctype is None or encoding is not None:
+            ctype = 'application/octet-stream'
+        is_inline = html_text.find(f"cid:{cid}") >= 0
+        maintype, subtype = ctype.split('/', 1)
+
+        if html_part is not None and is_inline and ctype is not None:
+            ftype, fext = ctype.split("/")
+            html_part.add_related(att.data, ftype, fext, cid=cid)
+        else:
+            out.add_attachment(att.data, maintype=maintype, subtype=subtype, filename=att_name)
+
+    index_data["link"] = f"{ofile}.eml"
+    with open(index_data["link"], 'wb') as fout:
+        fout.write(out.as_bytes(policy=SMTP))
+
+    return index_data
 
 
 def export_outlook(ndb, ofile, nid):  # noqa:ARG001
