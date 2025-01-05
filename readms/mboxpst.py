@@ -375,9 +375,9 @@ def export_eml(ndb, ofile, nid):
     # (3) Получатели
     name_to, name_cc = ee.get_recipients()
     if name_to is not None:
-        out["To"] = name_to
+        out["To"] = re.sub("[;]", ",", name_to)
     if name_cc is not None:
-        out["Cc"] = name_cc
+        out["Cc"] = re.sub("[;]", ",", name_cc)
 
     # (4) Дата и час на получаване
     attr = pc.get_value("MessageDeliveryTime")
