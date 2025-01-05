@@ -401,7 +401,7 @@ def export_eml(ndb, ofile, nid):
 
         if ctype is None or encoding is not None:
             ctype = 'application/octet-stream'
-        is_inline = html_text.find(f"cid:{cid}") >= 0
+        is_inline = html_text is not None and html_text.find(f"cid:{cid}") >= 0
         maintype, subtype = ctype.split('/', 1)
 
         if html_part is not None and is_inline and ctype is not None:
